@@ -556,9 +556,17 @@ function start() {
   sunParts[1].opacity = 0.12;
   sunParts[2].opacity = 0.25;
   sunParts[3].opacity = 1.0;
-  for (var si = 0; si < stars.length; si++) stars[si].path.opacity = 0;
-  moon.opacity = 0; moonGlow.opacity = 0;
-  moonEyeL.opacity = 0; moonEyeR.opacity = 0; moonPupilL.opacity = 0; moonPupilR.opacity = 0; moonMouth.opacity = 0;
+  for (var si = 0; si < stars.length; si++) { stars[si].path.opacity = 0; stars[si].path.visible = false; }
+  moon.opacity = 0; moon.visible = false;
+  moonGlow.opacity = 0; moonGlow.visible = false;
+  moonEyeL.opacity = 0; moonEyeL.visible = false;
+  moonEyeR.opacity = 0; moonEyeR.visible = false;
+  moonPupilL.opacity = 0; moonPupilL.visible = false;
+  moonPupilR.opacity = 0; moonPupilR.visible = false;
+  moonMouth.opacity = 0; moonMouth.visible = false;
+  lightningBolt.visible = false;
+  lightningFlash.visible = false;
+  for (var rii = 0; rii < rainDrops.length; rii++) rainDrops[rii].path.visible = false;
   ocean.fillColor = makeOceanDayColor(oceanTopY, oceanBotY);
   sand.fillColor = makeSandDayColor(sandTopY, sandBotY);
   shorelineWave.opacity = 1;
@@ -815,7 +823,7 @@ function drawFronds() {
   var trunkAngle = Math.atan2(tipY - prevP.position.y, tipX - prevP.position.x);
 
   var frondLen = view.size.height * 0.35;
-  var numNotches = 7;
+  var numNotches = 5;
 
   for (var fi = 0; fi < numFronds; fi++) {
     var jig = frondJigglers[fi];
@@ -839,7 +847,7 @@ function drawFronds() {
     var thisLen = frondLen * lenScale;
 
     // Build rachis curve
-    var rachisSegs = 24;
+    var rachisSegs = 14;
     var rachis = [];
     for (var s = 0; s <= rachisSegs; s++) {
       var t = s / rachisSegs;
@@ -938,6 +946,7 @@ function updateRain() {
   if (peaking) {
     for (var ri = 0; ri < rainCount; ri++) {
       var rd = rainDrops[ri];
+      if (!rd.path.visible) rd.path.visible = true;
       rd.y += rd.speedY;
       rd.x += rd.speedX;
       if (rd.y > h + 20 || rd.x < -60) {
@@ -948,10 +957,15 @@ function updateRain() {
       rd.path.opacity = 0.6;
     }
   } else {
-    // Fade out smoothly
+    // Fade out smoothly, then hide completely to skip render cost during day
     for (var ri2 = 0; ri2 < rainCount; ri2++) {
       var p = rainDrops[ri2].path;
-      if (p.opacity > 0) p.opacity = Math.max(0, p.opacity - 0.06);
+      if (!p.visible) continue;
+      if (p.opacity > 0) {
+        p.opacity = Math.max(0, p.opacity - 0.06);
+      } else {
+        p.visible = false;
+      }
     }
   }
 }
@@ -985,6 +999,7 @@ function fireLightning() {
 
 function updateLightning() {
   if (peaking) {
+    if (!lightningBolt.visible) { lightningBolt.visible = true; lightningFlash.visible = true; }
     var now = Date.now();
     if (now > nextLightningTime) {
       fireLightning();
@@ -994,8 +1009,10 @@ function updateLightning() {
       if (lightningFlash.opacity > 0) lightningFlash.opacity = Math.max(0, lightningFlash.opacity - 0.08);
     }
   } else {
-    if (lightningBolt.opacity > 0) lightningBolt.opacity = 0;
-    if (lightningFlash.opacity > 0) lightningFlash.opacity = 0;
+    if (lightningBolt.visible) {
+      lightningBolt.opacity = 0; lightningBolt.visible = false;
+      lightningFlash.opacity = 0; lightningFlash.visible = false;
+    }
     nextLightningTime = 0; // so first strike happens quickly on re-entry
   }
 }
@@ -1026,7 +1043,14 @@ function updateStars() {
       for (var ci = 0; ci < clouds.length; ci++) {
         for (var bi = 0; bi < clouds[ci].blobs.length; bi++) clouds[ci].blobs[bi].opacity = 0;
       }
-      for (var si2 = 0; si2 < stars.length; si2++) stars[si2].path.opacity = stars[si2].baseOpacity;
+      for (var si2 = 0; si2 < stars.length; si2++) {
+        stars[si2].path.visible = true;
+        stars[si2].path.opacity = stars[si2].baseOpacity;
+      }
+      moon.visible = true; moonGlow.visible = true;
+      moonEyeL.visible = true; moonEyeR.visible = true;
+      moonPupilL.visible = true; moonPupilR.visible = true;
+      moonMouth.visible = true;
       moon.opacity = 0.9;
       moonGlow.opacity = 0.08;
       // Googly face on the moon
@@ -1063,12 +1087,17 @@ function updateStars() {
       sunParts[1].opacity = 0.12;
       sunParts[2].opacity = 0.25;
       sunParts[3].opacity = 1.0;
-      for (var si4 = 0; si4 < stars.length; si4++) stars[si4].path.opacity = 0;
-      moon.opacity = 0;
-      moonGlow.opacity = 0;
-      moonEyeL.opacity = 0; moonEyeR.opacity = 0;
-      moonPupilL.opacity = 0; moonPupilR.opacity = 0;
-      moonMouth.opacity = 0;
+      for (var si4 = 0; si4 < stars.length; si4++) {
+        stars[si4].path.opacity = 0;
+        stars[si4].path.visible = false;
+      }
+      moon.opacity = 0; moon.visible = false;
+      moonGlow.opacity = 0; moonGlow.visible = false;
+      moonEyeL.opacity = 0; moonEyeL.visible = false;
+      moonEyeR.opacity = 0; moonEyeR.visible = false;
+      moonPupilL.opacity = 0; moonPupilL.visible = false;
+      moonPupilR.opacity = 0; moonPupilR.visible = false;
+      moonMouth.opacity = 0; moonMouth.visible = false;
       ocean.fillColor = makeOceanDayColor(oceanTopY, oceanBotY);
       sand.fillColor = makeSandDayColor(sandTopY, sandBotY);
       shorelineWave.opacity = 1;
