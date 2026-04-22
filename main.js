@@ -480,26 +480,55 @@ buildBody();
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 var isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-if (isTouchDevice) shakeHint.textContent = 'Shake your device.';
+if (isTouchDevice) shakeHint.textContent = 'Drag your finger.';
 
-document.addEventListener('touchmove', function(e) {
-  e.preventDefault();
-  var touch = e.touches[0];
+function handleTouchPoint(touch) {
   var rect = document.getElementById('canvas').getBoundingClientRect();
   var a = Math.atan2(touch.clientY - rect.top - view.size.height, touch.clientX - rect.left - view.size.width / 2);
   targetMousePos.x = view.size.width / 2 + Math.cos(a) * segmentLength * 3;
   targetMousePos.y = view.size.height + Math.sin(a) * segmentLength;
   lastMouseActivityTime = Date.now();
+}
+
+// touchstart — tap moves the palm immediately (not just drag)
+document.addEventListener('touchstart', function(e) {
+  if (!e.touches || !e.touches[0]) return;
+  if (e.target && e.target.closest && e.target.closest('#splash, #credits, #credits-trigger, #atas-logo-link')) return;
+  e.preventDefault();
+  handleTouchPoint(e.touches[0]);
 }, { passive: false });
 
-if (window.DeviceMotionEvent) {
-  window.addEventListener('devicemotion', function(e) {
-    var acc = e.accelerationIncludingGravity;
-    if (acc) {
-      physics.gravity.x += acc.x * 0.05;
-      physics.gravity.y += acc.y * 0.02;
-    }
-  });
+document.addEventListener('touchmove', function(e) {
+  if (!e.touches || !e.touches[0]) return;
+  e.preventDefault();
+  handleTouchPoint(e.touches[0]);
+}, { passive: false });
+
+// Device motion — on iOS 13+ requires a user-gesture permission request.
+// We call this on the 'accept' click; see start().
+var deviceMotionEnabled = false;
+function enableDeviceMotion() {
+  if (!window.DeviceMotionEvent) return;
+  var attach = function() {
+    if (deviceMotionEnabled) return;
+    deviceMotionEnabled = true;
+    window.addEventListener('devicemotion', function(e) {
+      var acc = e.accelerationIncludingGravity;
+      if (acc) {
+        physics.gravity.x += acc.x * 0.05;
+        physics.gravity.y += acc.y * 0.02;
+      }
+    });
+  };
+  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+    // iOS 13+: must request permission from a user gesture
+    DeviceMotionEvent.requestPermission()
+      .then(function(state) { if (state === 'granted') attach(); })
+      .catch(function(){ /* user declined; touch drag still works */ });
+  } else {
+    // Non-iOS or older iOS: attach directly
+    attach();
+  }
 }
 
 function onMouseMove(event) {
@@ -565,7 +594,9 @@ function start() {
   started = true;
   splash.style.display = 'none';
   try { initAudio(); muteAudio(); } catch(e) { /* audio may fail, continue anyway */ }
-  hintTimeout = setTimeout(function() { shakeHint.style.display = 'block'; }, 15000);
+  try { enableDeviceMotion(); } catch(e) { /* ignore */ }
+  // Show the hint sooner on mobile where interaction is less obvious
+  hintTimeout = setTimeout(function() { shakeHint.style.display = 'block'; }, isTouchDevice ? 5000 : 15000);
   // Reset stress/speed state so anything that built up before click is cleared
   stress = 0;
   mouseSpeed = 0;

@@ -39,6 +39,11 @@
       width: 100vw;
       height: 100vh;
       display: block;
+      /* Prevent iOS Safari from hijacking touches for scroll/zoom/pull-to-refresh */
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     /* Hurricane background — pure CSS psychedelic cycle, runs on compositor thread */
