@@ -514,13 +514,16 @@ function handleTouchPoint(touch) {
   lastMouseActivityTime = Date.now();
 }
 
-// touchstart — tap moves the palm immediately (not just drag)
+// touchstart — tap moves the palm immediately (not just drag).
+// Passive: browser decides scroll behavior itself (touch-action: none on the
+// canvas already blocks scroll/zoom there). Calling preventDefault in a
+// touchstart listener on desktop trackpads with touch emulation can cancel
+// the subsequent mousedown/mousemove chain that Paper.js listens for.
 document.addEventListener('touchstart', function(e) {
   if (!e.touches || !e.touches[0]) return;
   if (e.target && e.target.closest && e.target.closest('#splash, #credits, #credits-trigger, #atas-logo-link')) return;
-  e.preventDefault();
   handleTouchPoint(e.touches[0]);
-}, { passive: false });
+}, { passive: true });
 
 document.addEventListener('touchmove', function(e) {
   if (!e.touches || !e.touches[0]) return;
