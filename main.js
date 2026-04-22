@@ -6,6 +6,20 @@ var tikiSource = null;        // currently playing source (if any)
 var tikiStartOffset = 52.0;   // where in the file we are (persists across pauses)
 var tikiStartedAt = 0;        // audioContext.currentTime when last started
 var TIKI_LOOP_START = 52.0;
+var tikiPendingStart = false; // set if startTikiAudio was called before buffer was ready
+var tikiArrayBufferPromise = null; // eagerly kick off the MP3 download on page load
+
+// Start downloading the MP3 immediately — AudioContext can't be created until
+// a user gesture, but the bytes can be cached. credentials: 'omit' matches the
+// <link rel="preload" crossorigin="anonymous"> so the browser reuses its cache.
+tikiArrayBufferPromise = fetch('tikinoise.mp3', { credentials: 'omit' })
+  .then(function(res) { return res.arrayBuffer(); })
+  .then(function(buf) {
+    // paperscript shadows DOM Event — reach through window explicitly
+    document.dispatchEvent(new window.Event('tiki-audio-preloaded'));
+    return buf;
+  })
+  .catch(function(err) { console.warn('Failed to preload tikinoise.mp3', err); return null; });
 
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -18,17 +32,28 @@ function initAudio() {
   windGain.gain.value = 0;
   windGain.connect(gainNode);
 
-  // Load tikinoise.mp3 asynchronously
-  fetch('tikinoise.mp3')
-    .then(function(res) { return res.arrayBuffer(); })
-    .then(function(data) { return audioContext.decodeAudioData(data); })
-    .then(function(buf) { tikiBuffer = buf; })
-    .catch(function(err) { console.warn('Failed to load tikinoise.mp3', err); });
+  // Decode the pre-fetched bytes as soon as we have a context
+  tikiArrayBufferPromise
+    .then(function(data) {
+      if (!data) return null;
+      return audioContext.decodeAudioData(data);
+    })
+    .then(function(buf) {
+      if (!buf) return;
+      tikiBuffer = buf;
+      // If the hurricane already tried to start, kick it off now
+      if (tikiPendingStart) {
+        tikiPendingStart = false;
+        startTikiAudio();
+      }
+    })
+    .catch(function(err) { console.warn('Failed to decode tikinoise.mp3', err); });
 }
 
 // Start/resume playback of tikinoise.mp3 from where we paused (or 52s first time)
 function startTikiAudio() {
-  if (!audioContext || !tikiBuffer) return;
+  if (!audioContext) return;
+  if (!tikiBuffer) { tikiPendingStart = true; return; } // will auto-start when buffer is ready
   if (tikiSource) return; // already playing
   tikiSource = audioContext.createBufferSource();
   tikiSource.buffer = tikiBuffer;

@@ -20,6 +20,9 @@
   <meta name="twitter:description" content="Move your mouse.">
   <meta name="twitter:image" content="https://tiki.vc/og-image.png">
   <meta name="theme-color" content="#4AAFED">
+
+  <!-- Preload the storm audio so it's ready by the time the hurricane triggers -->
+  <link rel="preload" as="fetch" href="tikinoise.mp3" type="audio/mpeg" crossorigin="anonymous">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -104,6 +107,62 @@
       background: #fff;
       color: #000;
     }
+
+    /* Fun splash loading animation — palm tree swaying over animated wave line */
+    #splash-loader {
+      margin-top: 2.5em;
+      height: 88px;
+      width: 240px;
+      position: relative;
+      overflow: hidden;
+    }
+    #splash-palm {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform-origin: 50% 100%;
+      font-size: 2.5rem;
+      line-height: 1;
+      animation: splashSway 2.4s ease-in-out infinite;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    }
+    @keyframes splashSway {
+      0%, 100% { transform: translateX(-50%) rotate(-10deg); }
+      50%      { transform: translateX(-50%) rotate(10deg); }
+    }
+    /* Rolling wave line — uses a wide SVG-style gradient bar animated horizontally */
+    #splash-waves {
+      position: absolute;
+      bottom: 0;
+      left: -20%; right: -20%;
+      height: 14px;
+      background:
+        radial-gradient(ellipse 22px 10px at 10% 0%, rgba(255,255,255,0.55) 0%, transparent 70%),
+        radial-gradient(ellipse 22px 10px at 30% 100%, rgba(255,255,255,0.35) 0%, transparent 70%),
+        radial-gradient(ellipse 22px 10px at 50% 0%, rgba(255,255,255,0.55) 0%, transparent 70%),
+        radial-gradient(ellipse 22px 10px at 70% 100%, rgba(255,255,255,0.35) 0%, transparent 70%),
+        radial-gradient(ellipse 22px 10px at 90% 0%, rgba(255,255,255,0.55) 0%, transparent 70%),
+        linear-gradient(180deg, #2a8fb0 0%, #155f7f 100%);
+      border-radius: 2px;
+      animation: splashWaveRoll 1.6s linear infinite;
+    }
+    @keyframes splashWaveRoll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-40px); }
+    }
+    #splash-status {
+      position: absolute;
+      bottom: -28px;
+      left: 0; right: 0;
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 300;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      opacity: 0.5;
+      transition: opacity 0.3s;
+    }
+    #splash-status.ready { opacity: 0.9; color: #8ce098; }
 
     /* Shake hint */
     #shake {
@@ -210,6 +269,11 @@
     <h1>Warning: Flashing Images, Loud Noises</h1>
     <p>Also: tropical weather.</p>
     <button id="accept" onclick="document.getElementById('splash').style.display='none'; document.dispatchEvent(new Event('palm-start'));">I can handle it</button>
+    <div id="splash-loader">
+      <div id="splash-waves"></div>
+      <div id="splash-palm">🌴</div>
+      <div id="splash-status">Loading the breeze…</div>
+    </div>
   </div>
 
   <div id="shake">Move your mouse.</div>
@@ -236,6 +300,14 @@
   <script>
     // Note: main.js's setInterval calls view.draw() itself every frame. No
     // external RAF loop — that doubled render cost on high-refresh displays.
+
+    // Flip splash status to "Ready" when the audio bytes finish downloading.
+    // main.js fires this on its preload promise; we listen here to keep the
+    // splash UI self-contained.
+    document.addEventListener('tiki-audio-preloaded', function() {
+      var s = document.getElementById('splash-status');
+      if (s) { s.textContent = 'Ready'; s.classList.add('ready'); }
+    });
 
     // Credits popup toggle
     document.getElementById('credits-trigger').addEventListener('click', function() {
