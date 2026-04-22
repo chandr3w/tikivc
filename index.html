@@ -38,14 +38,14 @@
     html, body {
       width: 100%;
       height: 100vh;
-      height: 100dvh; /* honors iOS URL bar; falls back to 100vh */
+      height: 100lvh; /* large viewport — fills the full screen including the area behind Safari's chrome */
       overflow: hidden;
     }
 
     canvas {
       width: 100vw;
       height: 100vh;
-      height: 100dvh;
+      height: 100lvh;
       display: block;
       /* Prevent iOS Safari from hijacking touches for scroll/zoom/pull-to-refresh */
       touch-action: none;
@@ -146,8 +146,8 @@
     /* Atas logo bottom-left */
     #atas-logo-link {
       position: fixed;
-      bottom: 14px;
-      left: 14px;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      left: calc(14px + env(safe-area-inset-left, 0px));
       z-index: 60;
       display: block;
       line-height: 0;
@@ -166,8 +166,8 @@
     /* Credits trigger bottom-right */
     #credits-trigger {
       position: fixed;
-      bottom: 16px;
-      right: 18px;
+      bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+      right: calc(18px + env(safe-area-inset-right, 0px));
       z-index: 60;
       color: #b89968;
       font-size: 0.78rem;
@@ -185,8 +185,8 @@
     /* Credits popup bottom-right */
     #credits {
       position: fixed;
-      bottom: 44px;
-      right: 16px;
+      bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+      right: calc(16px + env(safe-area-inset-right, 0px));
       z-index: 61;
       max-width: 260px;
       padding: 12px 36px 12px 14px;
