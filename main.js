@@ -312,12 +312,12 @@ function buildScene() {
   var my = Math.round(h * 0.12);
   var ballR = 25;
 
-  // Halo / glow around the disco ball
-  moonGlow = new Path.Circle(new Point(mx, my), 55);
+  // Halo / glow — matches the original moon's halo (45 radius)
+  moonGlow = new Path.Circle(new Point(mx, my), 45);
   moonGlow.fillColor = new Color(1, 0.85, 1, 0.12);
   moonGlow.opacity = 0;
 
-  // The ball body — silvery base (will be re-tinted via hsl during storm)
+  // The ball body — same radius/position as the original moon
   moon = new Path.Circle(new Point(mx, my), ballR);
   moon.fillColor = new Color(0.78, 0.78, 0.85);
   moon.opacity = 0;
@@ -747,21 +747,8 @@ function setPositions() {
     }
   }
 
-  // Storm winds — during the hurricane, pull the target around in a chaotic
-  // orbit so the palm keeps swinging dramatically even if the user holds still.
-  // User's onMouseMove sets targetMousePos directly, so active input overrides
-  // this (wind resumes the instant they stop moving).
-  if (peaking) {
-    var windX = Math.sin(frameCount * 0.13) * segmentLength * 3.2
-              + Math.sin(frameCount * 0.27 + 1.3) * segmentLength * 1.6
-              + (Math.random() - 0.5) * segmentLength * 0.8;
-    var windY = Math.sin(frameCount * 0.19 + 0.7) * segmentLength * 1.2
-              + (Math.random() - 0.5) * segmentLength * 0.5;
-    var wRestX = view.size.width / 2;
-    var wRestY = view.size.height - segmentLength;
-    targetMousePos.x += ((wRestX + windX) - targetMousePos.x) * 0.15;
-    targetMousePos.y += ((wRestY + windY) - targetMousePos.y) * 0.15;
-  }
+  // (No storm-wind auto-thrashing — the palm stops when the mouse stops,
+  // even mid-hurricane. Stress then naturally decays and the storm winds down.)
 
   mousePos.x += (targetMousePos.x - mousePos.x) * easing;
   mousePos.y += (targetMousePos.y - mousePos.y) * easing;
@@ -1230,8 +1217,9 @@ function updateStars() {
         discoSparkles[dsv].path.visible = true;
         layer.addChild(discoSparkles[dsv].path);
       }
-      moonGlow.opacity = 0.7;
-      moon.opacity = 1;
+      // Match original moon opacity values exactly
+      moon.opacity = 0.9;
+      moonGlow.opacity = 0.08;
       for (var dgo = 0; dgo < discoGrid.length; dgo++) discoGrid[dgo].opacity = 1;
       ocean.fillColor = makeOceanStormColor(oceanTopY, oceanBotY);
       sand.fillColor = makeSandStormColor(sandTopY, sandBotY);
