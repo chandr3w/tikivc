@@ -18,6 +18,18 @@ tikiArrayBufferPromise = fetch('tikinoise.mp3', { credentials: 'omit' })
 
 function initAudio() {
   audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  // iOS audio unlock — play a silent 1-sample buffer within the user gesture
+  // to transition the context to running state. Without this, iOS Safari
+  // sometimes keeps Web Audio silent even after resume().
+  try {
+    var silent = audioContext.createBuffer(1, 1, 22050);
+    var unlock = audioContext.createBufferSource();
+    unlock.buffer = silent;
+    unlock.connect(audioContext.destination);
+    unlock.start(0);
+  } catch(e) { /* ignore */ }
+
   if (audioContext.state === 'suspended') audioContext.resume();
   gainNode = audioContext.createGain();
   gainNode.gain.value = 1.0;
@@ -26,6 +38,14 @@ function initAudio() {
   windGain = audioContext.createGain();
   windGain.gain.value = 0;
   windGain.connect(gainNode);
+
+  // Some platforms suspend the context again when the tab is backgrounded or
+  // when the user switches apps. Resume on every subsequent user gesture.
+  var resumeOnGesture = function() {
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+  };
+  document.addEventListener('touchstart', resumeOnGesture, { passive: true });
+  document.addEventListener('mousedown', resumeOnGesture, { passive: true });
 
   // Decode the pre-fetched bytes as soon as we have a context
   tikiArrayBufferPromise
@@ -50,6 +70,8 @@ function startTikiAudio() {
   if (!audioContext) return;
   if (!tikiBuffer) { tikiPendingStart = true; return; } // will auto-start when buffer is ready
   if (tikiSource) return; // already playing
+  // Mobile Safari/Chrome may re-suspend the context between gestures; nudge it back
+  if (audioContext.state === 'suspended') { try { audioContext.resume(); } catch(e){} }
   tikiSource = audioContext.createBufferSource();
   tikiSource.buffer = tikiBuffer;
   tikiSource.loop = true;
