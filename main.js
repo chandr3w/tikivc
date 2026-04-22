@@ -306,6 +306,7 @@ trunkFill.fillColor = '#B8893E';
 var trunkTexture = new Path();
 trunkTexture.closed = true;
 trunkTexture.fillColor = new Color(0, 0, 0, 0.06);
+trunkTexture.visible = false; // perf: 1px-offset duplicate of trunkFill, negligible visual gain
 
 var trunkRings = [];
 for (var ri = 0; ri < 6; ri++) {
@@ -781,21 +782,29 @@ function drawTrunk() {
     right.push(new Point(p.position.x - Math.cos(angle) * halfW + jitter, p.position.y - Math.sin(angle) * halfW));
   }
 
-  trunkFill.removeSegments();
-  for (var i = 0; i < left.length; i++) trunkFill.add(left[i]);
-  for (var i = right.length - 1; i >= 0; i--) trunkFill.add(right[i]);
-  trunkFill.closed = true;
-  trunkFill.smooth();
+  var tSegs = trunkFill.segments;
+  var expectedLen = left.length + right.length;
+  if (tSegs.length !== expectedLen) {
+    trunkFill.removeSegments();
+    for (var i = 0; i < left.length; i++) trunkFill.add(left[i]);
+    for (var i = right.length - 1; i >= 0; i--) trunkFill.add(right[i]);
+    trunkFill.closed = true;
+    trunkFill.smooth();
+  } else {
+    var ti = 0;
+    for (var i = 0; i < left.length; i++, ti++) {
+      tSegs[ti].point.x = left[i].x; tSegs[ti].point.y = left[i].y;
+    }
+    for (var i = right.length - 1; i >= 0; i--, ti++) {
+      tSegs[ti].point.x = right[i].x; tSegs[ti].point.y = right[i].y;
+    }
+    trunkFill.smooth();
+  }
   trunkFill.fillColor = peaking
     ? 'hsl(' + (Math.round(hue) % 360) + ', 100%, ' + (40 + Math.sin(hue / 20) * 20) + '%)'
     : '#C49A4A';
 
-  // Texture overlay
-  trunkTexture.removeSegments();
-  for (var i = 0; i < left.length; i++) trunkTexture.add(new Point(left[i].x + 1, left[i].y));
-  for (var i = right.length - 1; i >= 0; i--) trunkTexture.add(new Point(right[i].x - 1, right[i].y));
-  trunkTexture.closed = true;
-  trunkTexture.smooth();
+  // trunkTexture is a 1px-offset duplicate of trunkFill — barely visible, skipping entirely
 
   // Ring marks (match wider trunk width)
   for (var ri = 0; ri < trunkRings.length; ri++) {
@@ -859,10 +868,17 @@ function drawFronds() {
       });
     }
 
-    // Midrib line
-    fg.midrib.removeSegments();
-    for (var s = 0; s <= rachisSegs; s++) fg.midrib.add(new Point(rachis[s].x, rachis[s].y));
-    fg.midrib.smooth();
+    // Midrib line — in-place segment update, skip smooth (straight-line midrib doesn't benefit)
+    if (fg.midrib.segments.length !== rachisSegs + 1) {
+      fg.midrib.removeSegments();
+      for (var s = 0; s <= rachisSegs; s++) fg.midrib.add(new Point(rachis[s].x, rachis[s].y));
+    } else {
+      var mSegs = fg.midrib.segments;
+      for (var s = 0; s <= rachisSegs; s++) {
+        mSegs[s].point.x = rachis[s].x;
+        mSegs[s].point.y = rachis[s].y;
+      }
+    }
     fg.midrib.strokeColor = peaking ? 'hsl(' + ((Math.round(hue) + fi * 40 + 30) % 360) + ', 70%, 25%)' : '#2A6B29';
 
     // Unified frond body with V-notches cut into edges
@@ -897,22 +913,50 @@ function drawFronds() {
       }
     }
 
-    // Build closed frond body path
-    fg.body.removeSegments();
-    fg.body.add(new Point(rachis[0].x, rachis[0].y));
-    for (var i = 0; i < upperEdge.length; i++) fg.body.add(new Point(upperEdge[i].x, upperEdge[i].y));
+    // Body path — assemble point list, then update segments in-place if length matches
     var tipPoint = rachis[rachisSegs];
-    fg.body.add(new Point(tipPoint.x, tipPoint.y));
-    for (var i = lowerEdge.length - 1; i >= 0; i--) fg.body.add(new Point(lowerEdge[i].x, lowerEdge[i].y));
-    fg.body.closed = true;
+    var bodyLen = 1 + upperEdge.length + 1 + lowerEdge.length;
+    var bSegs = fg.body.segments;
+    if (bSegs.length !== bodyLen) {
+      fg.body.removeSegments();
+      fg.body.add(new Point(rachis[0].x, rachis[0].y));
+      for (var i = 0; i < upperEdge.length; i++) fg.body.add(new Point(upperEdge[i].x, upperEdge[i].y));
+      fg.body.add(new Point(tipPoint.x, tipPoint.y));
+      for (var i = lowerEdge.length - 1; i >= 0; i--) fg.body.add(new Point(lowerEdge[i].x, lowerEdge[i].y));
+      fg.body.closed = true;
+    } else {
+      var bi = 0;
+      bSegs[bi].point.x = rachis[0].x; bSegs[bi].point.y = rachis[0].y; bi++;
+      for (var j = 0; j < upperEdge.length; j++, bi++) {
+        bSegs[bi].point.x = upperEdge[j].x; bSegs[bi].point.y = upperEdge[j].y;
+      }
+      bSegs[bi].point.x = tipPoint.x; bSegs[bi].point.y = tipPoint.y; bi++;
+      for (var j = lowerEdge.length - 1; j >= 0; j--, bi++) {
+        bSegs[bi].point.x = lowerEdge[j].x; bSegs[bi].point.y = lowerEdge[j].y;
+      }
+    }
 
-    // Shadow half (darker underside)
-    fg.shadow.removeSegments();
-    fg.shadow.add(new Point(rachis[0].x, rachis[0].y));
-    for (var s = 0; s <= rachisSegs; s++) fg.shadow.add(new Point(rachis[s].x, rachis[s].y));
-    fg.shadow.add(new Point(tipPoint.x, tipPoint.y));
-    for (var i = lowerEdge.length - 1; i >= 0; i--) fg.shadow.add(new Point(lowerEdge[i].x, lowerEdge[i].y));
-    fg.shadow.closed = true;
+    // Shadow — same in-place pattern
+    var shadowLen = 1 + (rachisSegs + 1) + 1 + lowerEdge.length;
+    var sSegs = fg.shadow.segments;
+    if (sSegs.length !== shadowLen) {
+      fg.shadow.removeSegments();
+      fg.shadow.add(new Point(rachis[0].x, rachis[0].y));
+      for (var s = 0; s <= rachisSegs; s++) fg.shadow.add(new Point(rachis[s].x, rachis[s].y));
+      fg.shadow.add(new Point(tipPoint.x, tipPoint.y));
+      for (var i = lowerEdge.length - 1; i >= 0; i--) fg.shadow.add(new Point(lowerEdge[i].x, lowerEdge[i].y));
+      fg.shadow.closed = true;
+    } else {
+      var si = 0;
+      sSegs[si].point.x = rachis[0].x; sSegs[si].point.y = rachis[0].y; si++;
+      for (var s = 0; s <= rachisSegs; s++, si++) {
+        sSegs[si].point.x = rachis[s].x; sSegs[si].point.y = rachis[s].y;
+      }
+      sSegs[si].point.x = tipPoint.x; sSegs[si].point.y = tipPoint.y; si++;
+      for (var j = lowerEdge.length - 1; j >= 0; j--, si++) {
+        sSegs[si].point.x = lowerEdge[j].x; sSegs[si].point.y = lowerEdge[j].y;
+      }
+    }
 
     // Colors — PSYCHEDELIC in storm with wider hue separation per frond
     if (peaking) {
