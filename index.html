@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Swaying Palm</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      /* Daytime: blue sky fading to sand at bottom */
+      background: linear-gradient(180deg, #4AAFED 0%, #87CEEB 40%, #B0E0F0 65%, #E8F4F8 85%, #F5DEB3 92%, #DEB887 100%);
+      overflow: hidden;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      transition: background 1s ease;
+    }
+
+    canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+    }
+
+    /* Hurricane background — pure CSS psychedelic cycle, runs on compositor thread */
+    @keyframes psychedelic {
+      0%   { background-color: #1a0030; }
+      14%  { background-color: #4b0082; }
+      28%  { background-color: #8b0065; }
+      42%  { background-color: #001a30; }
+      56%  { background-color: #003a20; }
+      70%  { background-color: #30002a; }
+      84%  { background-color: #0a0033; }
+      100% { background-color: #1a0030; }
+    }
+
+    .bg-storm {
+      /* Clear the daytime gradient so background-color can show */
+      background-image: none !important;
+      animation: psychedelic 3s linear infinite !important;
+      transition: none !important;
+    }
+
+    /* Splash overlay */
+    #splash {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      text-align: center;
+    }
+
+    #splash h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 0.6em;
+    }
+
+    #splash p {
+      font-size: 0.85rem;
+      font-weight: 300;
+      letter-spacing: 0.15em;
+      opacity: 0.6;
+      margin-bottom: 2.5em;
+    }
+
+    #accept {
+      background: transparent;
+      color: #fff;
+      border: 2px solid #fff;
+      padding: 14px 48px;
+      font-size: 1rem;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    #accept:hover {
+      background: #fff;
+      color: #000;
+    }
+
+    /* Shake hint */
+    #shake {
+      position: fixed;
+      bottom: 8%;
+      left: 0; right: 0;
+      text-align: center;
+      color: rgba(30, 30, 30, 0.55);
+      font-size: 1.4rem;
+      text-shadow: 0 1px 3px rgba(255,255,255,0.5);
+      font-weight: 300;
+      letter-spacing: 0.2em;
+      z-index: 10;
+      display: none;
+      animation: fadeIn 2s ease-in;
+      pointer-events: none;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* Atas logo bottom-left */
+    #atas-logo-link {
+      position: fixed;
+      bottom: 14px;
+      left: 14px;
+      z-index: 60;
+      display: block;
+      line-height: 0;
+    }
+    #atas-logo {
+      height: 28px;
+      width: auto;
+      opacity: 0.85;
+      pointer-events: auto;
+      filter: drop-shadow(0 1px 3px rgba(255,255,255,0.4));
+      transition: opacity 0.2s ease;
+    }
+    #atas-logo-link:hover #atas-logo { opacity: 1; }
+
+
+    /* Credits trigger bottom-right */
+    #credits-trigger {
+      position: fixed;
+      bottom: 16px;
+      right: 18px;
+      z-index: 60;
+      color: #b89968;
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: lowercase;
+      text-shadow: 0 1px 2px rgba(255,255,255,0.45);
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      padding: 4px 6px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    }
+    #credits-trigger:hover { color: #8b6f47; }
+
+    /* Credits popup bottom-right */
+    #credits {
+      position: fixed;
+      bottom: 44px;
+      right: 16px;
+      z-index: 61;
+      max-width: 260px;
+      padding: 12px 36px 12px 14px;
+      background: rgba(255, 255, 255, 0.92);
+      color: #222;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      border-radius: 10px;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.18);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #credits a { color: #0a66c2; text-decoration: none; }
+    #credits a:hover { text-decoration: underline; }
+    #credits.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
+    #credits-close {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      width: 22px; height: 22px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 1.1rem;
+      color: #555;
+      line-height: 1;
+      padding: 0;
+    }
+    #credits-close:hover { color: #000; }
+  </style>
+</head>
+<body>
+
+  <canvas id="canvas" resize data-paper-scope="1"></canvas>
+
+  <div id="splash">
+    <h1>Warning: Flashing Images, Loud Noises</h1>
+    <p>Also: tropical weather.</p>
+    <button id="accept" onclick="document.getElementById('splash').style.display='none'; document.dispatchEvent(new Event('palm-start'));">I can handle it</button>
+  </div>
+
+  <div id="shake">Move your mouse.</div>
+
+  <a id="atas-logo-link" href="https://atas.vc" target="_blank" rel="noopener">
+    <img id="atas-logo" src="atas-logo.png" alt="Atas VC">
+  </a>
+
+  <button id="credits-trigger" aria-label="Show credits">credits</button>
+
+  <div id="credits" class="hidden">
+    <button id="credits-close" aria-label="Close">×</button>
+    <strong>Credits</strong><br>
+    By Andrew from <a href="https://atas.vc" target="_blank" rel="noopener">atas.vc</a><br>
+    Inspired by <a href="https://staggeringbeauty.com" target="_blank" rel="noopener">staggeringbeauty.com</a><br>
+    Music: <a href="https://www.youtube.com/watch?v=fJWmbLS2_ec" target="_blank" rel="noopener">youtube</a>
+  </div>
+
+  <script src="paper.js"></script>
+  <script src="Tween.js"></script>
+  <script src="traer.js"></script>
+  <script src="jiggler.js"></script>
+  <script src="main.js" type="text/paperscript" canvas="canvas"></script>
+  <script>
+    // Paper.js v0.22 doesn't auto-redraw from setInterval inside paperscript.
+    // This external loop forces a redraw every frame.
+    (function renderLoop() {
+      requestAnimationFrame(renderLoop);
+      var keys = Object.keys(paper.PaperScope._scopes || {});
+      for (var i = 0; i < keys.length; i++) {
+        var s = paper.PaperScope._scopes[keys[i]];
+        if (s && s.view) s.view.draw();
+      }
+    })();
+
+    // Credits popup toggle
+    document.getElementById('credits-trigger').addEventListener('click', function() {
+      document.getElementById('credits').classList.toggle('hidden');
+    });
+    document.getElementById('credits-close').addEventListener('click', function() {
+      document.getElementById('credits').classList.add('hidden');
+    });
+  </script>
+
+</body>
+</html>
