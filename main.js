@@ -155,7 +155,8 @@ var lastMouseActivityTime = Date.now();
 // ─── Scene: day (sun, clouds, ocean, sand) + night (stars, moon) ────────────
 var stars = [];
 var moon, moonGlow;
-var moonEyeL, moonEyeR, moonPupilL, moonPupilR, moonMouth;
+var discoGrid = []; // cross-hatch "facets" on the ball
+var discoSparkles = []; // bright twinkling dots that flash during the storm
 var sunParts = [];
 var clouds = [];
 var ocean, sand, waveHighlight;
@@ -309,36 +310,61 @@ function buildScene() {
 
   var mx = Math.round(w * 0.8);
   var my = Math.round(h * 0.12);
-  moonGlow = new Path.Circle(new Point(mx, my), 45);
-  moonGlow.fillColor = new Color(1, 1, 0.85, 0.08);
+  var ballR = 25;
+
+  // Halo / glow around the disco ball
+  moonGlow = new Path.Circle(new Point(mx, my), 55);
+  moonGlow.fillColor = new Color(1, 0.85, 1, 0.12);
   moonGlow.opacity = 0;
-  moon = new Path.Circle(new Point(mx, my), 25);
-  moon.fillColor = new Color(1, 1, 0.85, 0.8);
+
+  // The ball body — silvery base (will be re-tinted via hsl during storm)
+  moon = new Path.Circle(new Point(mx, my), ballR);
+  moon.fillColor = new Color(0.78, 0.78, 0.85);
   moon.opacity = 0;
 
-  // Googly eyes on the moon (visible during hurricane — adds silly face)
-  moonEyeL = new Path.Circle(new Point(mx - 7, my - 2), 5);
-  moonEyeL.fillColor = '#fff';
-  moonEyeL.opacity = 0;
-  moonEyeR = new Path.Circle(new Point(mx + 7, my - 2), 5);
-  moonEyeR.fillColor = '#fff';
-  moonEyeR.opacity = 0;
-  moonPupilL = new Path.Circle(new Point(mx - 7, my - 2), 2);
-  moonPupilL.fillColor = '#000';
-  moonPupilL.opacity = 0;
-  moonPupilR = new Path.Circle(new Point(mx + 7, my - 2), 2);
-  moonPupilR.fillColor = '#000';
-  moonPupilR.opacity = 0;
-  moonMouth = new Path();
-  moonMouth.strokeColor = '#000';
-  moonMouth.strokeWidth = 2;
-  moonMouth.strokeCap = 'round';
-  moonMouth.opacity = 0;
-  // A little "O" mouth of surprise
-  moonMouth.add(new Point(mx - 3, my + 7));
-  moonMouth.add(new Point(mx, my + 9));
-  moonMouth.add(new Point(mx + 3, my + 7));
-  moonMouth.smooth();
+  // Disco facet grid — straight lines across the circle forming a cross-hatch.
+  // Using a clip-free approach: draw short chords at various offsets so they
+  // naturally stay within the ball's circumference.
+  for (var dg = -3; dg <= 3; dg++) {
+    var off = dg * 7;
+    var inside = ballR * ballR - off * off;
+    if (inside <= 0) continue;
+    var edge = Math.sqrt(inside);
+    // vertical-ish facet line
+    var vLine = new Path();
+    vLine.strokeColor = new Color(0.25, 0.22, 0.35, 0.6);
+    vLine.strokeWidth = 0.8;
+    vLine.add(new Point(mx + off, my - edge));
+    vLine.add(new Point(mx + off, my + edge));
+    vLine.opacity = 0;
+    discoGrid.push(vLine);
+    // horizontal-ish facet line
+    var hLine = new Path();
+    hLine.strokeColor = new Color(0.25, 0.22, 0.35, 0.6);
+    hLine.strokeWidth = 0.8;
+    hLine.add(new Point(mx - edge, my + off));
+    hLine.add(new Point(mx + edge, my + off));
+    hLine.opacity = 0;
+    discoGrid.push(hLine);
+  }
+
+  // Bright twinkling sparkles distributed across the ball face
+  for (var ds = 0; ds < 8; ds++) {
+    var sAngle = (ds / 8) * Math.PI * 2 + Math.random() * 0.6;
+    var sR = 4 + Math.random() * (ballR - 8);
+    var sx = mx + Math.cos(sAngle) * sR;
+    var sy = my + Math.sin(sAngle) * sR;
+    var sparkle = new Path.Circle(new Point(sx, sy), 1.8 + Math.random() * 1.7);
+    sparkle.fillColor = '#fff';
+    sparkle.opacity = 0;
+    discoSparkles.push({
+      path: sparkle,
+      baseX: sx, baseY: sy,
+      phase: Math.random() * Math.PI * 2,
+      speed: 3 + Math.random() * 5,
+      hueOffset: Math.random() * 360
+    });
+  }
 }
 buildScene();
 
@@ -639,11 +665,8 @@ function start() {
   for (var si = 0; si < stars.length; si++) { stars[si].path.opacity = 0; stars[si].path.visible = false; }
   moon.opacity = 0; moon.visible = false;
   moonGlow.opacity = 0; moonGlow.visible = false;
-  moonEyeL.opacity = 0; moonEyeL.visible = false;
-  moonEyeR.opacity = 0; moonEyeR.visible = false;
-  moonPupilL.opacity = 0; moonPupilL.visible = false;
-  moonPupilR.opacity = 0; moonPupilR.visible = false;
-  moonMouth.opacity = 0; moonMouth.visible = false;
+  for (var dgi = 0; dgi < discoGrid.length; dgi++) { discoGrid[dgi].opacity = 0; discoGrid[dgi].visible = false; }
+  for (var dsi = 0; dsi < discoSparkles.length; dsi++) { discoSparkles[dsi].path.opacity = 0; discoSparkles[dsi].path.visible = false; }
   lightningBolt.visible = false;
   lightningFlash.visible = false;
   for (var rii = 0; rii < rainDrops.length; rii++) rainDrops[rii].path.visible = false;
@@ -1190,38 +1213,40 @@ function updateStars() {
         stars[si2].path.visible = true;
         stars[si2].path.opacity = stars[si2].baseOpacity;
       }
-      moon.visible = true; moonGlow.visible = true;
-      moonEyeL.visible = true; moonEyeR.visible = true;
-      moonPupilL.visible = true; moonPupilR.visible = true;
-      moonMouth.visible = true;
-      // Move the moon + face in front of the palm fronds so it isn't hidden
-      // when the tree thrashes toward the upper-right corner.
-      moonGlow.bringToFront();
-      moon.bringToFront();
-      moonEyeL.bringToFront(); moonEyeR.bringToFront();
-      moonPupilL.bringToFront(); moonPupilR.bringToFront();
-      moonMouth.bringToFront();
-      moon.opacity = 0.9;
-      moonGlow.opacity = 0.08;
-      // Googly face on the moon
-      moonEyeL.opacity = 1; moonEyeR.opacity = 1;
-      moonPupilL.opacity = 1; moonPupilR.opacity = 1;
-      moonMouth.opacity = 1;
+      // Disco ball! Move the full rig in front of palm fronds so the storm
+      // thrashing doesn't occlude it, then light everything up.
+      moonGlow.visible = true; moonGlow.bringToFront();
+      moon.visible = true; moon.bringToFront();
+      for (var dgv = 0; dgv < discoGrid.length; dgv++) {
+        discoGrid[dgv].visible = true;
+        discoGrid[dgv].bringToFront();
+      }
+      for (var dsv = 0; dsv < discoSparkles.length; dsv++) {
+        discoSparkles[dsv].path.visible = true;
+        discoSparkles[dsv].path.bringToFront();
+      }
+      moonGlow.opacity = 0.7;
+      moon.opacity = 1;
+      for (var dgo = 0; dgo < discoGrid.length; dgo++) discoGrid[dgo].opacity = 1;
       ocean.fillColor = makeOceanStormColor(oceanTopY, oceanBotY);
       sand.fillColor = makeSandStormColor(sandTopY, sandBotY);
       shorelineWave.opacity = 0.4;
       for (var ffs = 0; ffs < foamFlecks.length; ffs++) foamFlecks[ffs].path.opacity = foamFlecks[ffs].baseOp * 0.3;
     }
-    // Googly pupils bounce around inside the eyes — frantic during the storm
-    if (frameCount % 4 === 0 && moonEyeL) {
-      var mx = moonEyeL.position.x, my = moonEyeL.position.y;
-      var mx2 = moonEyeR.position.x, my2 = moonEyeR.position.y;
-      // Each eye looks somewhere independently, with fast chaos
-      var angL = Math.sin(time * 4.5) * Math.PI + Math.random() * 1.2;
-      var angR = Math.cos(time * 5.1) * Math.PI + Math.random() * 1.2;
-      var off = 2.8;
-      moonPupilL.position = new Point(mx + Math.cos(angL) * off, my + Math.sin(angL) * off);
-      moonPupilR.position = new Point(mx2 + Math.cos(angR) * off, my2 + Math.sin(angR) * off);
+    // Disco sparkles — each twinkles at its own rate with a rainbow-cycling tint
+    if (frameCount % 2 === 0) {
+      var baseH = Math.round(hue) % 360;
+      for (var spi = 0; spi < discoSparkles.length; spi++) {
+        var sp = discoSparkles[spi];
+        var pulse = 0.3 + Math.abs(Math.sin(time * sp.speed + sp.phase)) * 0.7;
+        sp.path.opacity = pulse;
+        sp.path.fillColor = 'hsl(' + ((baseH + sp.hueOffset) % 360) + ', 100%, ' + (70 + pulse * 20) + '%)';
+      }
+    }
+    // Subtle disco ball rotation — tilt the grid so it feels like it's spinning
+    if (frameCount % 3 === 0) {
+      var rotCenter = moon.position;
+      for (var dgr = 0; dgr < discoGrid.length; dgr++) discoGrid[dgr].rotate(1.2, rotCenter);
     }
     // Star twinkle every 4 frames
     if (frameCount % 4 === 0) {
@@ -1244,11 +1269,8 @@ function updateStars() {
       }
       moon.opacity = 0; moon.visible = false;
       moonGlow.opacity = 0; moonGlow.visible = false;
-      moonEyeL.opacity = 0; moonEyeL.visible = false;
-      moonEyeR.opacity = 0; moonEyeR.visible = false;
-      moonPupilL.opacity = 0; moonPupilL.visible = false;
-      moonPupilR.opacity = 0; moonPupilR.visible = false;
-      moonMouth.opacity = 0; moonMouth.visible = false;
+      for (var dge = 0; dge < discoGrid.length; dge++) { discoGrid[dge].opacity = 0; discoGrid[dge].visible = false; }
+      for (var dse = 0; dse < discoSparkles.length; dse++) { discoSparkles[dse].path.opacity = 0; discoSparkles[dse].path.visible = false; }
       ocean.fillColor = makeOceanDayColor(oceanTopY, oceanBotY);
       sand.fillColor = makeSandDayColor(sandTopY, sandBotY);
       shorelineWave.opacity = 1;
