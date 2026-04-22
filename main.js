@@ -733,8 +733,11 @@ function setPositions() {
 }
 
 // ─── Appearance ──────────────────────────────────────────────────────────────
-var hurricaneThreshold = 90;       // easier to trigger — earlier setting
-var hurricaneExitThreshold = 45;   // HYSTERESIS — must drop below this to exit
+// Touch devices build stress more slowly (slower drag vs mouse fling) and use
+// a narrower screen, so use a lower threshold.
+var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+var hurricaneThreshold = _touch ? 45 : 90;       // easier to trigger — earlier setting
+var hurricaneExitThreshold = _touch ? 22 : 45;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
@@ -882,7 +885,8 @@ function drawFronds() {
   var tipY = tipP.position.y;
   var trunkAngle = Math.atan2(tipY - prevP.position.y, tipX - prevP.position.x);
 
-  var frondLen = view.size.height * 0.35;
+  // Cap fronds by viewport width too, so they don't overflow on narrow (mobile) screens
+  var frondLen = Math.min(view.size.height * 0.35, view.size.width * 0.48);
   var numNotches = 5;
 
   for (var fi = 0; fi < numFronds; fi++) {
