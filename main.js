@@ -761,15 +761,15 @@ function setPositions() {
 
   var speedStress = mouseSpeedSmoothed * 5;
   targetStress = Math.max(targetStress, speedStress);
-  stress += (targetStress - stress) * 0.03;
+  stress += (targetStress - stress) * 0.06;
 }
 
 // ─── Appearance ──────────────────────────────────────────────────────────────
 // Touch devices build stress more slowly (slower drag vs mouse fling) and use
 // a narrower screen, so use a lower threshold.
 var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-var hurricaneThreshold = _touch ? 45 : 65;       // easier to trigger — earlier setting
-var hurricaneExitThreshold = _touch ? 30 : 35;   // HYSTERESIS — must drop below this to exit
+var hurricaneThreshold = _touch ? 35 : 45;       // easier to trigger — earlier setting
+var hurricaneExitThreshold = _touch ? 20 : 25;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
