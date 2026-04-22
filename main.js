@@ -793,11 +793,9 @@ function setPositions() {
 // Touch devices build stress more slowly (slower drag vs mouse fling) and use
 // a narrower screen, so use a lower threshold.
 var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-// Requires ~1 second of sustained vigorous shaking (with accumulation rate
-// 0.06, stress tracks targetStress as stress ≈ target * (1 - 0.94^N);
-// 75 after ~1s of sustained ~100 target).
-var hurricaneThreshold = _touch ? 60 : 75;
-var hurricaneExitThreshold = _touch ? 25 : 35;   // HYSTERESIS — must drop below this to exit
+// Tuned so ~half a second of sustained vigorous shaking triggers.
+var hurricaneThreshold = _touch ? 40 : 50;
+var hurricaneExitThreshold = _touch ? 20 : 25;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
