@@ -148,7 +148,9 @@ var bend = -0.012;
 var prevMouseX = view.size.width / 2, prevMouseY = view.size.height - segmentLength;
 var mouseSpeed = 0, mouseSpeedSmoothed = 0;
 var started = false;
-var lastMouseActivityTime = 0;
+// Initialize to "recent activity" so the idle drift doesn't fire at full strength
+// the instant start() is called (before the user has had a chance to move their mouse).
+var lastMouseActivityTime = Date.now();
 
 // ─── Scene: day (sun, clouds, ocean, sand) + night (stars, moon) ────────────
 var stars = [];
@@ -625,6 +627,7 @@ function start() {
   mouseSpeedSmoothed = 0;
   prevMouseX = mousePos.x;
   prevMouseY = mousePos.y;
+  lastMouseActivityTime = Date.now();
   // Force initial daytime scene setup (since updateStars only runs transition branches)
   sunParts[0].opacity = 0.06;
   sunParts[1].opacity = 0.12;
