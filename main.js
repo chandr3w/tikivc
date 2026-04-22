@@ -14,11 +14,6 @@ var tikiArrayBufferPromise = null; // eagerly kick off the MP3 download on page 
 // <link rel="preload" crossorigin="anonymous"> so the browser reuses its cache.
 tikiArrayBufferPromise = fetch('tikinoise.mp3', { credentials: 'omit' })
   .then(function(res) { return res.arrayBuffer(); })
-  .then(function(buf) {
-    // paperscript shadows DOM Event — reach through window explicitly
-    document.dispatchEvent(new window.Event('tiki-audio-preloaded'));
-    return buf;
-  })
   .catch(function(err) { console.warn('Failed to preload tikinoise.mp3', err); return null; });
 
 function initAudio() {
