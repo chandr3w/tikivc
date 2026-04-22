@@ -708,23 +708,33 @@ function updateWaves() {
 
 // ─── Set Positions ───────────────────────────────────────────────────────────
 function setPositions() {
-  // Idle drift — after 200ms of no mouse activity, ramp a pull-back toward rest
-  // over the next 400ms. During peaking, kicks in later (600ms) and at lower
-  // strength so the storm still feels wild, but the tip eventually returns to
-  // center when idle — which pulls stress down and lets the hurricane exit.
-  if (started) {
+  // Calm-state idle drift — pulls the tip back to rest after 200ms of no mouse
+  // activity. Disabled during peaking: we WANT the palm thrashing wildly
+  // throughout the storm, not centering.
+  if (started && !peaking) {
     var sinceActivity = Date.now() - lastMouseActivityTime;
-    var idleDelay = peaking ? 600 : 200;
-    var idleRamp = 400;
-    var peakMult = peaking ? 0.35 : 1.0;
-    if (sinceActivity > idleDelay) {
-      var ramp = Math.min(1, (sinceActivity - idleDelay) / idleRamp);
-      var driftStr = 0.18 * ramp * peakMult;
+    if (sinceActivity > 200) {
+      var ramp = Math.min(1, (sinceActivity - 200) / 400);
+      var driftStr = 0.18 * ramp;
       var restX = view.size.width / 2;
       var restY = view.size.height - segmentLength;
       targetMousePos.x += (restX - targetMousePos.x) * driftStr;
       targetMousePos.y += (restY - targetMousePos.y) * driftStr;
     }
+  }
+
+  // Storm winds — during the hurricane, pull the target around in a chaotic
+  // orbit so the palm keeps swinging dramatically even if the user holds still.
+  // User's onMouseMove sets targetMousePos directly, so active input overrides
+  // this (wind resumes the instant they stop moving).
+  if (peaking) {
+    var windX = Math.sin(frameCount * 0.11) * segmentLength * 2.2
+              + Math.sin(frameCount * 0.22 + 1.3) * segmentLength * 0.9;
+    var windY = Math.sin(frameCount * 0.17 + 0.7) * segmentLength * 0.6;
+    var wRestX = view.size.width / 2;
+    var wRestY = view.size.height - segmentLength;
+    targetMousePos.x += ((wRestX + windX) - targetMousePos.x) * 0.08;
+    targetMousePos.y += ((wRestY + windY) - targetMousePos.y) * 0.08;
   }
 
   mousePos.x += (targetMousePos.x - mousePos.x) * easing;
