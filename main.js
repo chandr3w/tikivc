@@ -106,6 +106,7 @@ var bend = -0.012;
 var prevMouseX = view.size.width / 2, prevMouseY = view.size.height - segmentLength;
 var mouseSpeed = 0, mouseSpeedSmoothed = 0;
 var started = false;
+var lastMouseActivityTime = 0;
 
 // ─── Scene: day (sun, clouds, ocean, sand) + night (stars, moon) ────────────
 var stars = [];
@@ -467,6 +468,7 @@ document.addEventListener('touchmove', function(e) {
   var a = Math.atan2(touch.clientY - rect.top - view.size.height, touch.clientX - rect.left - view.size.width / 2);
   targetMousePos.x = view.size.width / 2 + Math.cos(a) * segmentLength * 3;
   targetMousePos.y = view.size.height + Math.sin(a) * segmentLength;
+  lastMouseActivityTime = Date.now();
 }, { passive: false });
 
 if (window.DeviceMotionEvent) {
@@ -483,6 +485,7 @@ function onMouseMove(event) {
   var a = Math.atan2(event.point.y - view.size.height, event.point.x - view.size.width / 2);
   targetMousePos.x = view.size.width / 2 + Math.cos(a) * segmentLength * 3;
   targetMousePos.y = view.size.height + Math.sin(a) * segmentLength;
+  lastMouseActivityTime = Date.now();
 }
 
 // When mouse leaves the canvas/page, tree springs back to upright center
@@ -584,6 +587,7 @@ setInterval(function() {
   updateLightning();
   updateWaves();
   applyScreenShake();
+  view.draw();
 }, 1000 / 60);
 
 // Animate shoreline wave crest + drifting foam flecks
@@ -616,13 +620,14 @@ function updateWaves() {
 
 // ─── Set Positions ───────────────────────────────────────────────────────────
 function setPositions() {
-  // Idle drift — pull target back to upright when mouse has stopped moving.
-  // Gated on mouseSpeedSmoothed: full strength at idle, zero during active motion,
-  // so it doesn't fight the user's input.
+  // Idle drift — after 200ms of no mouse activity, ramp a pull-back toward rest
+  // over the next 400ms. During active motion, zero drift, so stress can build
+  // for the hurricane trigger.
   if (started && !peaking) {
-    var idleness = Math.max(0, 1 - mouseSpeedSmoothed / 2.5);
-    if (idleness > 0) {
-      var driftStr = 0.18 * idleness;
+    var sinceActivity = Date.now() - lastMouseActivityTime;
+    if (sinceActivity > 200) {
+      var ramp = Math.min(1, (sinceActivity - 200) / 400);
+      var driftStr = 0.18 * ramp;
       var restX = view.size.width / 2;
       var restY = view.size.height - segmentLength;
       targetMousePos.x += (restX - targetMousePos.x) * driftStr;
