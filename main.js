@@ -768,8 +768,8 @@ function setPositions() {
 // Touch devices build stress more slowly (slower drag vs mouse fling) and use
 // a narrower screen, so use a lower threshold.
 var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-var hurricaneThreshold = _touch ? 45 : 90;       // easier to trigger — earlier setting
-var hurricaneExitThreshold = _touch ? 30 : 45;   // HYSTERESIS — must drop below this to exit
+var hurricaneThreshold = _touch ? 45 : 65;       // easier to trigger — earlier setting
+var hurricaneExitThreshold = _touch ? 30 : 35;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
