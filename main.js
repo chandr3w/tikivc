@@ -728,13 +728,15 @@ function setPositions() {
   // User's onMouseMove sets targetMousePos directly, so active input overrides
   // this (wind resumes the instant they stop moving).
   if (peaking) {
-    var windX = Math.sin(frameCount * 0.11) * segmentLength * 2.2
-              + Math.sin(frameCount * 0.22 + 1.3) * segmentLength * 0.9;
-    var windY = Math.sin(frameCount * 0.17 + 0.7) * segmentLength * 0.6;
+    var windX = Math.sin(frameCount * 0.13) * segmentLength * 3.2
+              + Math.sin(frameCount * 0.27 + 1.3) * segmentLength * 1.6
+              + (Math.random() - 0.5) * segmentLength * 0.8;
+    var windY = Math.sin(frameCount * 0.19 + 0.7) * segmentLength * 1.2
+              + (Math.random() - 0.5) * segmentLength * 0.5;
     var wRestX = view.size.width / 2;
     var wRestY = view.size.height - segmentLength;
-    targetMousePos.x += ((wRestX + windX) - targetMousePos.x) * 0.08;
-    targetMousePos.y += ((wRestY + windY) - targetMousePos.y) * 0.08;
+    targetMousePos.x += ((wRestX + windX) - targetMousePos.x) * 0.15;
+    targetMousePos.y += ((wRestY + windY) - targetMousePos.y) * 0.15;
   }
 
   mousePos.x += (targetMousePos.x - mousePos.x) * easing;
@@ -778,8 +780,8 @@ function setPositions() {
 // Touch devices build stress more slowly (slower drag vs mouse fling) and use
 // a narrower screen, so use a lower threshold.
 var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-var hurricaneThreshold = _touch ? 35 : 45;       // easier to trigger — earlier setting
-var hurricaneExitThreshold = _touch ? 20 : 25;   // HYSTERESIS — must drop below this to exit
+var hurricaneThreshold = _touch ? 25 : 30;       // trivial to trigger — a brief swirl does it
+var hurricaneExitThreshold = _touch ? 15 : 18;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
@@ -1192,6 +1194,13 @@ function updateStars() {
       moonEyeL.visible = true; moonEyeR.visible = true;
       moonPupilL.visible = true; moonPupilR.visible = true;
       moonMouth.visible = true;
+      // Move the moon + face in front of the palm fronds so it isn't hidden
+      // when the tree thrashes toward the upper-right corner.
+      moonGlow.bringToFront();
+      moon.bringToFront();
+      moonEyeL.bringToFront(); moonEyeR.bringToFront();
+      moonPupilL.bringToFront(); moonPupilR.bringToFront();
+      moonMouth.bringToFront();
       moon.opacity = 0.9;
       moonGlow.opacity = 0.08;
       // Googly face on the moon
@@ -1203,15 +1212,16 @@ function updateStars() {
       shorelineWave.opacity = 0.4;
       for (var ffs = 0; ffs < foamFlecks.length; ffs++) foamFlecks[ffs].path.opacity = foamFlecks[ffs].baseOp * 0.3;
     }
-    // Googly pupils bounce around inside the eyes (every 12 frames for performance)
-    if (frameCount % 12 === 0 && moonEyeL) {
+    // Googly pupils bounce around inside the eyes — frantic during the storm
+    if (frameCount % 4 === 0 && moonEyeL) {
       var mx = moonEyeL.position.x, my = moonEyeL.position.y;
       var mx2 = moonEyeR.position.x, my2 = moonEyeR.position.y;
-      // Shared look direction with random jitter
-      var ang = Math.sin(time * 1.3) * Math.PI + Math.random() * 0.5;
-      var off = 2;
-      moonPupilL.position = new Point(mx + Math.cos(ang) * off, my + Math.sin(ang) * off);
-      moonPupilR.position = new Point(mx2 + Math.cos(ang) * off, my2 + Math.sin(ang) * off);
+      // Each eye looks somewhere independently, with fast chaos
+      var angL = Math.sin(time * 4.5) * Math.PI + Math.random() * 1.2;
+      var angR = Math.cos(time * 5.1) * Math.PI + Math.random() * 1.2;
+      var off = 2.8;
+      moonPupilL.position = new Point(mx + Math.cos(angL) * off, my + Math.sin(angL) * off);
+      moonPupilR.position = new Point(mx2 + Math.cos(angR) * off, my2 + Math.sin(angR) * off);
     }
     // Star twinkle every 4 frames
     if (frameCount % 4 === 0) {
