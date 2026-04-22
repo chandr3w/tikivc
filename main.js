@@ -699,6 +699,7 @@ setInterval(function() {
   updateWaves();
   applyScreenShake();
   view.draw();
+  prevPeaking = peaking;
 }, 1000 / 60);
 
 // Animate shoreline wave crest + drifting foam flecks
@@ -857,7 +858,8 @@ function updateAppearance() {
       coconutLaunched = false;
     }
   }
-  prevPeaking = peaking;
+  // NOTE: prevPeaking is updated at the end of the main loop, not here —
+  // updateStars() also uses it for its own scene-transition block.
 }
 
 // ─── Coconuts ────────────────────────────────────────────────────────────────
@@ -1214,16 +1216,19 @@ function updateStars() {
         stars[si2].path.opacity = stars[si2].baseOpacity;
       }
       // Disco ball! Move the full rig in front of palm fronds so the storm
-      // thrashing doesn't occlude it, then light everything up.
-      moonGlow.visible = true; moonGlow.bringToFront();
-      moon.visible = true; moon.bringToFront();
+      // thrashing doesn't occlude it. Paper.js v0.22 has no bringToFront;
+      // re-adding to the active layer moves the item to the end of the
+      // children array, which draws it last (= on top).
+      var layer = project.activeLayer;
+      moonGlow.visible = true; layer.addChild(moonGlow);
+      moon.visible = true; layer.addChild(moon);
       for (var dgv = 0; dgv < discoGrid.length; dgv++) {
         discoGrid[dgv].visible = true;
-        discoGrid[dgv].bringToFront();
+        layer.addChild(discoGrid[dgv]);
       }
       for (var dsv = 0; dsv < discoSparkles.length; dsv++) {
         discoSparkles[dsv].path.visible = true;
-        discoSparkles[dsv].path.bringToFront();
+        layer.addChild(discoSparkles[dsv].path);
       }
       moonGlow.opacity = 0.7;
       moon.opacity = 1;
