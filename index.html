@@ -26,9 +26,18 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html {
+      /* Paint the sky gradient on <html> too so it fills the viewport behind
+         iOS Safari's translucent URL bar / bottom tab bar. The body element
+         can get laid out within the safe-area, leaving those edges un-painted. */
+      background: linear-gradient(180deg, #4AAFED 0%, #87CEEB 40%, #B0E0F0 65%, #E8F4F8 85%, #F5DEB3 92%, #DEB887 100%);
+      background-attachment: fixed;
+    }
+
     body {
       /* Daytime: blue sky fading to sand at bottom */
       background: linear-gradient(180deg, #4AAFED 0%, #87CEEB 40%, #B0E0F0 65%, #E8F4F8 85%, #F5DEB3 92%, #DEB887 100%);
+      background-attachment: fixed;
       overflow: hidden;
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
