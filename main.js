@@ -308,8 +308,10 @@ function buildScene() {
     });
   }
 
-  var mx = Math.round(w * 0.8);
-  var my = Math.round(h * 0.12);
+  // Place the disco ball at the same spot the sun occupies during the day,
+  // so the element at the upper-right-corner doesn't "jump" between modes.
+  var mx = Math.round(w * 0.82);
+  var my = Math.round(h * 0.15);
   var ballR = 25;
 
   // Halo / glow — matches the original moon's halo (45 radius)
@@ -791,8 +793,11 @@ function setPositions() {
 // Touch devices build stress more slowly (slower drag vs mouse fling) and use
 // a narrower screen, so use a lower threshold.
 var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-var hurricaneThreshold = _touch ? 25 : 30;       // trivial to trigger — a brief swirl does it
-var hurricaneExitThreshold = _touch ? 15 : 18;   // HYSTERESIS — must drop below this to exit
+// Requires ~1 second of sustained vigorous shaking (with accumulation rate
+// 0.06, stress tracks targetStress as stress ≈ target * (1 - 0.94^N);
+// 75 after ~1s of sustained ~100 target).
+var hurricaneThreshold = _touch ? 60 : 75;
+var hurricaneExitThreshold = _touch ? 25 : 35;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
