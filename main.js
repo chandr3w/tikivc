@@ -681,13 +681,17 @@ function updateWaves() {
 // ─── Set Positions ───────────────────────────────────────────────────────────
 function setPositions() {
   // Idle drift — after 200ms of no mouse activity, ramp a pull-back toward rest
-  // over the next 400ms. During active motion, zero drift, so stress can build
-  // for the hurricane trigger.
-  if (started && !peaking) {
+  // over the next 400ms. During peaking, kicks in later (600ms) and at lower
+  // strength so the storm still feels wild, but the tip eventually returns to
+  // center when idle — which pulls stress down and lets the hurricane exit.
+  if (started) {
     var sinceActivity = Date.now() - lastMouseActivityTime;
-    if (sinceActivity > 200) {
-      var ramp = Math.min(1, (sinceActivity - 200) / 400);
-      var driftStr = 0.18 * ramp;
+    var idleDelay = peaking ? 600 : 200;
+    var idleRamp = 400;
+    var peakMult = peaking ? 0.35 : 1.0;
+    if (sinceActivity > idleDelay) {
+      var ramp = Math.min(1, (sinceActivity - idleDelay) / idleRamp);
+      var driftStr = 0.18 * ramp * peakMult;
       var restX = view.size.width / 2;
       var restY = view.size.height - segmentLength;
       targetMousePos.x += (restX - targetMousePos.x) * driftStr;
@@ -737,7 +741,7 @@ function setPositions() {
 // a narrower screen, so use a lower threshold.
 var _touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 var hurricaneThreshold = _touch ? 45 : 90;       // easier to trigger — earlier setting
-var hurricaneExitThreshold = _touch ? 22 : 45;   // HYSTERESIS — must drop below this to exit
+var hurricaneExitThreshold = _touch ? 30 : 45;   // HYSTERESIS — must drop below this to exit
 
 function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
