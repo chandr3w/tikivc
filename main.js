@@ -694,26 +694,14 @@ function start() {
   }
 }
 
-// Main loop — requestAnimationFrame with a 60fps cap. Benefits over setInterval:
-//   - Syncs with display refresh, so individual frames don't stutter from
-//     timer-vs-vsync drift.
-//   - Browsers auto-throttle RAF to 1Hz when the tab is hidden, so we don't
-//     need an explicit document.hidden bailout (and it breaks headless
-//     previews that report hidden=true).
-//   - On 120Hz displays we throttle to ~60fps (the storm's color-cycle and
-//     physics were tuned for 60) instead of doubling work for no visual gain.
-var FRAME_INTERVAL = 1000 / 60;
-var lastFrameTime = 0;
-function tick(now) {
-  requestAnimationFrame(tick);
-  // Throttle to ~60fps even on high-refresh displays. The -1 tolerance
-  // prevents a 60Hz display from skipping every other frame due to timer
-  // jitter landing just under FRAME_INTERVAL.
-  if (now - lastFrameTime < FRAME_INTERVAL - 1) return;
-  lastFrameTime = now;
-
-  physics.gravity.x = Math.sin(now / 5000) * 0.2 + Math.sin(now / 8000) * 0.1;
-  physics.gravity.y = Math.sin(now / 6000) * 0.15 - 3;
+// Main loop — setInterval at 60Hz. The physics (easing=0.04, stress
+// accumulation, mouseSpeedSmoothed decay) was all tuned against this
+// fixed-interval cadence. RAF felt slow on iOS because ProMotion throttles
+// RAF down to ~30Hz when the tab isn't in active foreground interaction,
+// which dragged physics with it. setInterval doesn't vary.
+setInterval(function() {
+  physics.gravity.x = Math.sin(Date.now() / 5000) * 0.2 + Math.sin(Date.now() / 8000) * 0.1;
+  physics.gravity.y = Math.sin(Date.now() / 6000) * 0.15 - 3;
   setPositions();
   updateAppearance();
   physics.tick(1.0);
@@ -729,8 +717,7 @@ function tick(now) {
   applyScreenShake();
   view.draw();
   prevPeaking = peaking;
-}
-requestAnimationFrame(tick);
+}, 1000 / 60);
 
 // Animate shoreline wave crest + drifting foam flecks
 function updateWaves() {
