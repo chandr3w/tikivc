@@ -427,19 +427,15 @@ for (var fi = 0; fi < numFronds; fi++) {
   // Shadow half (darker) — drawn first, underneath
   var frondShadow = new Path();
   frondShadow.closed = true;
-  frondShadow.fillColor = '#2A6B29';
 
   // Main frond body (lighter) — on top
   var frondBody = new Path();
   frondBody.closed = true;
-  frondBody.fillColor = '#5AAE4A';
-  frondBody.strokeColor = '#1F5F1F';
   frondBody.strokeWidth = 1.5;
   frondBody.strokeJoin = 'round';
 
   // Central midrib line
   var midrib = new Path();
-  midrib.strokeColor = '#2A6B29';
   midrib.strokeWidth = 1.2;
 
   frondGroups.push({ body: frondBody, shadow: frondShadow, midrib: midrib });
@@ -451,6 +447,22 @@ for (var fi = 0; fi < numFronds; fi++) {
   jig.rest = Math.sin(fi * 1.3) * 2;
   frondJigglers.push(jig);
 }
+
+// Apply the static day-mode palette to every frond. Called once at startup
+// and again on peaking→day transition — drawFronds skips color assignment
+// in day mode to avoid re-parsing these HSL strings every frame.
+function applyFrondDayColors() {
+  for (var i = 0; i < numFronds; i++) {
+    var fg = frondGroups[i];
+    var lightness = 45 + i * 1.2;
+    var hueCss = 118 + i * 2;
+    fg.body.fillColor = 'hsl(' + hueCss + ', 45%, ' + lightness + '%)';
+    fg.body.strokeColor = '#1F5F1F';
+    fg.shadow.fillColor = 'hsl(' + hueCss + ', 45%, ' + (lightness - 15) + '%)';
+    fg.midrib.strokeColor = '#2A6B29';
+  }
+}
+applyFrondDayColors();
 
 // ─── Rain drops (pre-allocated, hidden by default) ───────────────────────
 var rainCount = 100;
@@ -682,10 +694,26 @@ function start() {
   }
 }
 
-// Main loop
-setInterval(function() {
-  physics.gravity.x = Math.sin(Date.now() / 5000) * 0.2 + Math.sin(Date.now() / 8000) * 0.1;
-  physics.gravity.y = Math.sin(Date.now() / 6000) * 0.15 - 3;
+// Main loop — requestAnimationFrame with a 60fps cap. Benefits over setInterval:
+//   - Syncs with display refresh, so individual frames don't stutter from
+//     timer-vs-vsync drift.
+//   - Browsers auto-throttle RAF to 1Hz when the tab is hidden, so we don't
+//     need an explicit document.hidden bailout (and it breaks headless
+//     previews that report hidden=true).
+//   - On 120Hz displays we throttle to ~60fps (the storm's color-cycle and
+//     physics were tuned for 60) instead of doubling work for no visual gain.
+var FRAME_INTERVAL = 1000 / 60;
+var lastFrameTime = 0;
+function tick(now) {
+  requestAnimationFrame(tick);
+  // Throttle to ~60fps even on high-refresh displays. The -1 tolerance
+  // prevents a 60Hz display from skipping every other frame due to timer
+  // jitter landing just under FRAME_INTERVAL.
+  if (now - lastFrameTime < FRAME_INTERVAL - 1) return;
+  lastFrameTime = now;
+
+  physics.gravity.x = Math.sin(now / 5000) * 0.2 + Math.sin(now / 8000) * 0.1;
+  physics.gravity.y = Math.sin(now / 6000) * 0.15 - 3;
   setPositions();
   updateAppearance();
   physics.tick(1.0);
@@ -701,7 +729,8 @@ setInterval(function() {
   applyScreenShake();
   view.draw();
   prevPeaking = peaking;
-}, 1000 / 60);
+}
+requestAnimationFrame(tick);
 
 // Animate shoreline wave crest + drifting foam flecks
 function updateWaves() {
@@ -725,7 +754,7 @@ function updateWaves() {
     if (ff.x > w + 20) ff.x = -20;
     var yBase = oceanTopY + ff.yFrac * (oceanBotY - oceanTopY);
     var bob = Math.sin(t + ff.phase) * ff.bobAmp;
-    ff.path.position = new Point(ff.x, yBase + bob * 0.3);
+    ff.path.position.set(ff.x, yBase + bob * 0.3);
     // Subtle opacity twinkle
     ff.path.opacity = ff.baseOp * (0.75 + 0.25 * Math.sin(t * 1.7 + ff.phase));
   }
@@ -820,6 +849,8 @@ function updateAppearance() {
       startTikiAudio();
       setWindIntensity(1.0);
       firstPlay = false;
+      // Switch trunk rings to storm palette (drawTrunk no longer writes them every frame)
+      applyTrunkStyle(true);
     }
 
     // Thunder: only every 8 seconds at peak, less often otherwise
@@ -845,6 +876,9 @@ function updateAppearance() {
       firstPlay = true;
       hurricaneText.opacity = 0;
       coconutLaunched = false;
+      // Restore static day palette — drawFronds/drawTrunk skip color writes in day mode.
+      applyFrondDayColors();
+      applyTrunkStyle(false);
     }
   }
   // NOTE: prevPeaking is updated at the end of the main loop, not here —
@@ -865,7 +899,7 @@ function updateCoconuts() {
   for (var i = coconuts.length - 1; i >= 0; i--) {
     var c = coconuts[i];
     c.vy += 0.4; c.x += c.vx; c.y += c.vy;
-    c.path.position = new Point(c.x, c.y);
+    c.path.position.set(c.x, c.y);
     if (c.y > view.size.height + 50 || c.x < -50 || c.x > view.size.width + 50) { c.path.remove(); coconuts.splice(i, 1); }
   }
 }
@@ -912,13 +946,14 @@ function drawTrunk() {
     }
     trunkFill.smooth();
   }
-  trunkFill.fillColor = peaking
-    ? 'hsl(' + (Math.round(hue) % 360) + ', 100%, ' + (40 + Math.sin(hue / 20) * 20) + '%)'
-    : '#C49A4A';
+  // Only re-compute trunk fill when peaking (hue cycles every frame). In
+  // day mode the color is static '#C49A4A' — set once on transition.
+  if (peaking) {
+    trunkFill.fillColor = 'hsl(' + (Math.round(hue) % 360) + ', 100%, ' + (40 + Math.sin(hue / 20) * 20) + '%)';
+  }
 
-  // trunkTexture is a 1px-offset duplicate of trunkFill — barely visible, skipping entirely
-
-  // Ring marks (match wider trunk width)
+  // Ring marks (match wider trunk width). Colors + strokeWidth are static per
+  // state — set once on transition, only re-position segments every frame.
   for (var ri = 0; ri < trunkRings.length; ri++) {
     var ring = trunkRings[ri];
     ring.removeSegments();
@@ -930,10 +965,22 @@ function drawTrunk() {
     var rW = ((38 - rt * 28) + Math.sin(rt * Math.PI * 0.6) * 6) * treeScale;
     ring.add(new Point(rp.position.x + Math.cos(rAngle) * rW * 0.85, rp.position.y + Math.sin(rAngle) * rW * 0.85));
     ring.add(new Point(rp.position.x - Math.cos(rAngle) * rW * 0.85, rp.position.y - Math.sin(rAngle) * rW * 0.85));
-    ring.strokeColor = peaking ? new Color(1, 1, 1, 0.3) : new Color(0.27, 0.16, 0.04, 0.7);
-    ring.strokeWidth = 2;
   }
 }
+
+// Static trunk-style setter — called on state transitions so the per-frame
+// drawTrunk loop doesn't have to re-assign identical colors/strokeWidths.
+function applyTrunkStyle(storm) {
+  if (!storm) {
+    trunkFill.fillColor = '#C49A4A';
+  }
+  var ringColor = storm ? new Color(1, 1, 1, 0.3) : new Color(0.27, 0.16, 0.04, 0.7);
+  for (var i = 0; i < trunkRings.length; i++) {
+    trunkRings[i].strokeColor = ringColor;
+    trunkRings[i].strokeWidth = 2;
+  }
+}
+applyTrunkStyle(false);
 
 // ─── Draw Fronds (V-notch banana shape — kept change) ───────────────────────
 function drawFronds() {
@@ -992,7 +1039,12 @@ function drawFronds() {
         mSegs[s].point.y = rachis[s].y;
       }
     }
-    fg.midrib.strokeColor = peaking ? 'hsl(' + ((Math.round(hue) + fi * 40 + 30) % 360) + ', 70%, 25%)' : '#2A6B29';
+    // Only re-assign midrib stroke color when peaking (hue cycles every frame
+    // during storm). In day mode the color is static — assigned once on
+    // transition, re-parsing the string every frame just churns GC.
+    if (peaking) {
+      fg.midrib.strokeColor = 'hsl(' + ((Math.round(hue) + fi * 40 + 30) % 360) + ', 70%, 25%)';
+    }
 
     // Unified frond body with V-notches cut into edges
     function widthAt(t) {
@@ -1071,19 +1123,17 @@ function drawFronds() {
       }
     }
 
-    // Colors — PSYCHEDELIC in storm with wider hue separation per frond
+    // Colors — PSYCHEDELIC in storm with wider hue separation per frond.
+    // Day mode: colors are static per frond, assigned once on transition
+    // (see applyFrondDayColors below). Skipping the per-frame string parse
+    // is worth ~40 Color.read() calls per frame across all fronds.
     if (peaking) {
       var baseH = (Math.round(hue) + fi * 55) % 360;
       var sat = 100;
       var lit = 50 + Math.sin((hue + fi * 40) / 15) * 20;
       fg.body.fillColor = 'hsl(' + baseH + ', ' + sat + '%, ' + lit + '%)';
-      fg.body.strokeColor = 'hsl(' + ((baseH + 180) % 360) + ', 100%, 30%)';  // complementary outline
+      fg.body.strokeColor = 'hsl(' + ((baseH + 180) % 360) + ', 100%, 30%)';
       fg.shadow.fillColor = 'hsl(' + ((baseH + 30) % 360) + ', 90%, 25%)';
-    } else {
-      var lightness = 45 + fi * 1.2;
-      fg.body.fillColor = 'hsl(' + (118 + fi * 2) + ', 45%, ' + lightness + '%)';
-      fg.body.strokeColor = '#1F5F1F';
-      fg.shadow.fillColor = 'hsl(' + (118 + fi * 2) + ', 45%, ' + (lightness - 15) + '%)';
     }
   }
 
@@ -1092,8 +1142,8 @@ function drawFronds() {
     var cc = coconutCluster[ci];
     var cx = tipX + Math.cos(trunkAngle + cc.offsetAngle) * cc.offsetR;
     var cy = tipY + Math.sin(trunkAngle + cc.offsetAngle) * cc.offsetR;
-    cc.path.position = new Point(cx, cy);
-    cc.highlight.position = new Point(cx - cc.radius * 0.35, cy - cc.radius * 0.35);
+    cc.path.position.set(cx, cy);
+    cc.highlight.position.set(cx - cc.radius * 0.35, cy - cc.radius * 0.35);
   }
 }
 
@@ -1103,15 +1153,19 @@ function updateRain() {
   if (peaking) {
     for (var ri = 0; ri < rainCount; ri++) {
       var rd = rainDrops[ri];
-      if (!rd.path.visible) rd.path.visible = true;
+      if (!rd.path.visible) {
+        rd.path.visible = true;
+        rd.path.opacity = 0.6;
+      }
       rd.y += rd.speedY;
       rd.x += rd.speedX;
       if (rd.y > h + 20 || rd.x < -60) {
         rd.y = -30 - Math.random() * 40;
         rd.x = Math.random() * (w * 1.3) - w * 0.1;
       }
-      rd.path.position = new Point(rd.x, rd.y);
-      rd.path.opacity = 0.6;
+      // .set() is a single notify on the LinkedPoint — setting .x then .y
+      // would trigger setPosition twice per drop. 100 drops × 60fps matters.
+      rd.path.position.set(rd.x, rd.y);
     }
   } else {
     // Fade out smoothly, then hide completely to skip render cost during day
