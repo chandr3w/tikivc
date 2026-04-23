@@ -1,3 +1,40 @@
+// ─── HiDPI / Retina ──────────────────────────────────────────────────────────
+// Paper.js v0.22 predates devicePixelRatio — it sets canvas.width in CSS px,
+// so every drawn pixel becomes a dpr×dpr block on retina displays (blurry).
+// Fix: size the canvas BACKING buffer to CSS × dpr, leave CSS size alone, and
+// ctx.setTransform(dpr,…) as the base state so Paper's matrix composes on top.
+(function setupHiDPI() {
+  var dpr = window.devicePixelRatio || 1;
+  if (dpr === 1) return;
+  var canvas = document.getElementById('canvas');
+  var ctx = canvas.getContext('2d');
+
+  var apply = function(w, h) {
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+
+  // Paper.js has already sized the canvas (CSS px) by the time this paperscript
+  // runs. Upgrade the buffer now, and wrap setViewSize so future resizes do the
+  // same. We override the instance method, which shadows the prototype version
+  // that paper.js's window-resize handler calls via `that.setViewSize(...)`.
+  apply(view._viewSize._width, view._viewSize._height);
+
+  view.setViewSize = function(size) {
+    size = Size.read(arguments);
+    var w = size.width, h = size.height;
+    var prev = new Size(this._viewSize._width, this._viewSize._height);
+    if (w === prev.width && h === prev.height) return;
+    apply(w, h);
+    this._viewSize.set(w, h, true);
+    this._bounds = null;
+    this._redrawNeeded = true;
+    if (this.onResize) this.onResize({ size: size, delta: size.subtract(prev) });
+    this._redraw();
+  };
+})();
+
 // ─── Audio ───────────────────────────────────────────────────────────────────
 // Uses tikinoise.mp3 for the storm ambience — starts at 52s, loop+pause/resume
 var audioContext, gainNode, windGain;
@@ -40,11 +77,14 @@ function initAudio() {
   windGain.connect(gainNode);
 
   // Some platforms suspend the context again when the tab is backgrounded or
-  // when the user switches apps. Resume on every subsequent user gesture.
+  // when the user switches apps. Resume on every subsequent user gesture —
+  // touchmove included, since on mobile the user may drag for many seconds
+  // between taps before the hurricane triggers audio.
   var resumeOnGesture = function() {
     if (audioContext && audioContext.state === 'suspended') audioContext.resume();
   };
   document.addEventListener('touchstart', resumeOnGesture, { passive: true });
+  document.addEventListener('touchmove', resumeOnGesture, { passive: true });
   document.addEventListener('mousedown', resumeOnGesture, { passive: true });
 
   // Decode the pre-fetched bytes as soon as we have a context
@@ -70,16 +110,27 @@ function startTikiAudio() {
   if (!audioContext) return;
   if (!tikiBuffer) { tikiPendingStart = true; return; } // will auto-start when buffer is ready
   if (tikiSource) return; // already playing
-  // Mobile Safari/Chrome may re-suspend the context between gestures; nudge it back
-  if (audioContext.state === 'suspended') { try { audioContext.resume(); } catch(e){} }
-  tikiSource = audioContext.createBufferSource();
-  tikiSource.buffer = tikiBuffer;
-  tikiSource.loop = true;
-  tikiSource.loopStart = TIKI_LOOP_START;
-  tikiSource.loopEnd = tikiBuffer.duration;
-  tikiSource.connect(windGain);
-  tikiStartedAt = audioContext.currentTime;
-  tikiSource.start(0, tikiStartOffset);
+
+  var actuallyStart = function() {
+    if (tikiSource) return; // guard: resume promise could race with a second call
+    tikiSource = audioContext.createBufferSource();
+    tikiSource.buffer = tikiBuffer;
+    tikiSource.loop = true;
+    tikiSource.loopStart = TIKI_LOOP_START;
+    tikiSource.loopEnd = tikiBuffer.duration;
+    tikiSource.connect(windGain);
+    tikiStartedAt = audioContext.currentTime;
+    tikiSource.start(0, tikiStartOffset);
+  };
+
+  // iOS frequently re-suspends the AudioContext between gestures. resume() is
+  // async — if we called start() while the context was still suspended, the
+  // source would run silent and stay silent. Wait for resume to settle.
+  if (audioContext.state === 'suspended') {
+    audioContext.resume().then(actuallyStart, actuallyStart);
+  } else {
+    actuallyStart();
+  }
 }
 
 // Pause: stop the source but remember where we were so we can resume
@@ -123,6 +174,16 @@ var restDrag = 0.85;
 var physics = new ParticleSystem(+0.34, -3, 0, restDrag);
 
 var numPoints = 10;
+// Tree was sized for ~1000px+ wide displays. On narrow (mobile portrait)
+// viewports the tree fills the entire screen, which reads as "zoomed in" —
+// scale down to leave more sky/sand around it.
+function getTreeScale() {
+  var w = view.size.width;
+  if (w >= 800) return 1.0;
+  // Linear from 0.70 at 320px → 1.0 at 800px.
+  return Math.max(0.70, 0.70 + ((w - 320) / 480) * 0.30);
+}
+var treeScale = getTreeScale();
 var segmentLength = getSegmentLength();
 var padding = 60;
 
@@ -559,33 +620,6 @@ document.addEventListener('touchmove', function(e) {
   handleTouchPoint(e.touches[0]);
 }, { passive: false });
 
-// Device motion — on iOS 13+ requires a user-gesture permission request.
-// We call this on the 'accept' click; see start().
-var deviceMotionEnabled = false;
-function enableDeviceMotion() {
-  if (!window.DeviceMotionEvent) return;
-  var attach = function() {
-    if (deviceMotionEnabled) return;
-    deviceMotionEnabled = true;
-    window.addEventListener('devicemotion', function(e) {
-      var acc = e.accelerationIncludingGravity;
-      if (acc) {
-        physics.gravity.x += acc.x * 0.05;
-        physics.gravity.y += acc.y * 0.02;
-      }
-    });
-  };
-  if (typeof DeviceMotionEvent.requestPermission === 'function') {
-    // iOS 13+: must request permission from a user gesture
-    DeviceMotionEvent.requestPermission()
-      .then(function(state) { if (state === 'granted') attach(); })
-      .catch(function(){ /* user declined; touch drag still works */ });
-  } else {
-    // Non-iOS or older iOS: attach directly
-    attach();
-  }
-}
-
 function onMouseMove(event) {
   var a = Math.atan2(event.point.y - view.size.height, event.point.x - view.size.width / 2);
   targetMousePos.x = view.size.width / 2 + Math.cos(a) * segmentLength * 3;
@@ -608,6 +642,7 @@ document.addEventListener('mouseout', function(e) {
 
 function onResize() {
   var w = view.size.width, h = view.size.height;
+  treeScale = getTreeScale();
   segmentLength = getSegmentLength();
   particles[0].position.x = w / 2;
   particles[0].position.y = h + segmentLength;
@@ -640,7 +675,7 @@ function onResize() {
   if (lightningFlash) lightningFlash.bounds = new Rectangle(-50, -50, w + 100, h + 100);
 }
 
-function getSegmentLength() { return view.size.height / numPoints * 0.65; }
+function getSegmentLength() { return view.size.height / numPoints * 0.65 * treeScale; }
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
 // ─── Start ───────────────────────────────────────────────────────────────────
@@ -649,7 +684,6 @@ function start() {
   started = true;
   splash.style.display = 'none';
   try { initAudio(); muteAudio(); } catch(e) { /* audio may fail, continue anyway */ }
-  try { enableDeviceMotion(); } catch(e) { /* ignore */ }
   // Show the hint sooner on mobile where interaction is less obvious
   hintTimeout = setTimeout(function() { shakeHint.style.display = 'block'; }, isTouchDevice ? 5000 : 15000);
   // Reset stress/speed state so anything that built up before click is cleared
@@ -881,7 +915,7 @@ function drawTrunk() {
     // Wider trunk with root flare at base and belly
     var baseFlare = t < 0.15 ? (1 - t / 0.15) * 14 : 0;
     var belly = Math.sin(t * Math.PI * 0.6) * 6;
-    var halfW = (38 - t * 28) + belly + baseFlare;
+    var halfW = ((38 - t * 28) + belly + baseFlare) * treeScale;
 
     var angle;
     if (i < numPoints - 1) {
@@ -928,7 +962,7 @@ function drawTrunk() {
     var rp = particles[idx];
     var rnp = particles[idx + 1];
     var rAngle = Math.atan2(rnp.position.y - rp.position.y, rnp.position.x - rp.position.x) + Math.PI / 2;
-    var rW = (38 - rt * 28) + Math.sin(rt * Math.PI * 0.6) * 6;
+    var rW = ((38 - rt * 28) + Math.sin(rt * Math.PI * 0.6) * 6) * treeScale;
     ring.add(new Point(rp.position.x + Math.cos(rAngle) * rW * 0.85, rp.position.y + Math.sin(rAngle) * rW * 0.85));
     ring.add(new Point(rp.position.x - Math.cos(rAngle) * rW * 0.85, rp.position.y - Math.sin(rAngle) * rW * 0.85));
     ring.strokeColor = peaking ? new Color(1, 1, 1, 0.3) : new Color(0.27, 0.16, 0.04, 0.7);
@@ -945,7 +979,7 @@ function drawFronds() {
   var trunkAngle = Math.atan2(tipY - prevP.position.y, tipX - prevP.position.x);
 
   // Cap fronds by viewport width too, so they don't overflow on narrow (mobile) screens
-  var frondLen = Math.min(view.size.height * 0.35, view.size.width * 0.48);
+  var frondLen = Math.min(view.size.height * 0.35, view.size.width * 0.48) * treeScale;
   var numNotches = 5;
 
   for (var fi = 0; fi < numFronds; fi++) {
