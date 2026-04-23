@@ -31,27 +31,30 @@
 
     html, body {
       width: 100%;
-      height: 100vh;
-      height: 100lvh; /* large viewport — fills the full screen including the area behind Safari's chrome */
+      height: 100%;
       overflow: hidden;
-      /* Daytime: blue sky fading to sand at bottom. NO background-attachment:
-         fixed here — on iOS Safari, fixed backgrounds are clipped to the
-         SMALL viewport (excluding URL bar area), which leaves the behind-chrome
-         zone un-painted. Letting the gradient paint on the element itself
-         (which is 100lvh tall) makes it extend behind the chrome as intended. */
-      background: linear-gradient(180deg, #4AAFED 0%, #87CEEB 40%, #B0E0F0 65%, #E8F4F8 85%, #F5DEB3 92%, #DEB887 100%);
     }
 
+    /* `position: fixed; inset: 0` + viewport-fit=cover in the <meta> forces
+       the element to fill the TRUE viewport (including the area behind the
+       iOS URL bar / bottom tab bar). This is more reliable across iOS
+       versions than 100lvh, which some older Safari builds interpret as the
+       small viewport. Body paints the sky gradient; canvas sits on top and
+       is transparent except where Paper.js draws ocean/tree/etc. */
     body {
-      margin: 0;
+      position: fixed;
+      inset: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(180deg, #4AAFED 0%, #87CEEB 40%, #B0E0F0 65%, #E8F4F8 85%, #F5DEB3 92%, #DEB887 100%);
       transition: background 1s ease;
     }
 
     canvas {
-      width: 100vw;
-      height: 100vh;
-      height: 100lvh;
+      position: fixed;
+      inset: 0;
+      width: 100%;   /* inset:0 alone doesn't override the canvas element's
+                        intrinsic 300×150 sizing; explicit width/height does. */
+      height: 100%;
       display: block;
       /* Prevent iOS Safari from hijacking touches for scroll/zoom/pull-to-refresh */
       touch-action: none;
