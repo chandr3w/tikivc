@@ -324,7 +324,10 @@ function buildScene() {
   }
 
   // ─── Night stars (hidden during day) ───
-  for (var si = 0; si < 80; si++) {
+  // Fewer stars on mobile — at 40 the sky still feels twinkly during the
+  // storm but we cut path renders in half during peak chaos.
+  var starCount = (('ontouchstart' in window) || navigator.maxTouchPoints > 0) ? 40 : 80;
+  for (var si = 0; si < starCount; si++) {
     var sxs = Math.round(Math.random() * w);
     var sys = Math.round(Math.random() * h * 0.7);
     var starSize = 0.5 + Math.random() * 2;
@@ -471,7 +474,10 @@ function applyFrondDayColors() {
 applyFrondDayColors();
 
 // ─── Rain drops (pre-allocated, hidden by default) ───────────────────────
-var rainCount = 100;
+// Mobile devices paint at high pixel density and struggle with 100 drops
+// during the hurricane. Half the drops is still a convincing downpour.
+var _isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+var rainCount = _isTouchDevice ? 50 : 100;
 var rainDrops = [];
 for (var ri = 0; ri < rainCount; ri++) {
   var drop = new Path();
@@ -939,9 +945,11 @@ function drawTrunk() {
     }
     trunkFill.smooth();
   }
-  // Only re-compute trunk fill when peaking (hue cycles every frame). In
-  // day mode the color is static '#C49A4A' — set once on transition.
-  if (peaking) {
+  // Only re-compute trunk fill when peaking (hue cycles). Day mode: static
+  // '#C49A4A' set on transition. Throttle to every other frame — same
+  // rationale as frond colors above (30Hz color cycle is imperceptible
+  // from 60Hz during the chaotic storm).
+  if (peaking && (frameCount & 1) === 0) {
     trunkFill.fillColor = 'hsl(' + (Math.round(hue) % 360) + ', 100%, ' + (40 + Math.sin(hue / 20) * 20) + '%)';
   }
 
@@ -1034,8 +1042,9 @@ function drawFronds() {
     }
     // Only re-assign midrib stroke color when peaking (hue cycles every frame
     // during storm). In day mode the color is static — assigned once on
-    // transition, re-parsing the string every frame just churns GC.
-    if (peaking) {
+    // transition. Throttled to every other frame: at 30 updates/sec the
+    // psychedelic cycle still reads fine but we cut Color.read() calls in half.
+    if (peaking && (frameCount & 1) === 0) {
       fg.midrib.strokeColor = 'hsl(' + ((Math.round(hue) + fi * 40 + 30) % 360) + ', 70%, 25%)';
     }
 
@@ -1116,11 +1125,10 @@ function drawFronds() {
       }
     }
 
-    // Colors — PSYCHEDELIC in storm with wider hue separation per frond.
-    // Day mode: colors are static per frond, assigned once on transition
-    // (see applyFrondDayColors below). Skipping the per-frame string parse
-    // is worth ~40 Color.read() calls per frame across all fronds.
-    if (peaking) {
+    // Colors — PSYCHEDELIC in storm. Throttled to every other frame: that's
+    // 3 HSL parses × 9 fronds × 30Hz = 810/sec instead of 1620/sec, and the
+    // storm is chaotic enough that no one notices the 30Hz color cadence.
+    if (peaking && (frameCount & 1) === 0) {
       var baseH = (Math.round(hue) + fi * 55) % 360;
       var sat = 100;
       var lit = 50 + Math.sin((hue + fi * 40) / 15) * 20;
@@ -1275,8 +1283,9 @@ function updateStars() {
       shorelineWave.opacity = 0.4;
       for (var ffs = 0; ffs < foamFlecks.length; ffs++) foamFlecks[ffs].path.opacity = foamFlecks[ffs].baseOp * 0.3;
     }
-    // Disco sparkles — each twinkles at its own rate with a rainbow-cycling tint
-    if (frameCount % 2 === 0) {
+    // Disco sparkles — each twinkles at its own rate with a rainbow-cycling tint.
+    // Every 4 frames (was 2) — sparkles still feel alive, HSL parsing halved.
+    if (frameCount % 4 === 0) {
       var baseH = Math.round(hue) % 360;
       for (var spi = 0; spi < discoSparkles.length; spi++) {
         var sp = discoSparkles[spi];
@@ -1285,13 +1294,14 @@ function updateStars() {
         sp.path.fillColor = 'hsl(' + ((baseH + sp.hueOffset) % 360) + ', 100%, ' + (70 + pulse * 20) + '%)';
       }
     }
-    // Subtle disco ball rotation — tilt the grid so it feels like it's spinning
-    if (frameCount % 3 === 0) {
+    // Subtle disco ball rotation — bigger step, less often (every 6 frames
+    // instead of 3). Same rotation speed visually; half the transforms.
+    if (frameCount % 6 === 0) {
       var rotCenter = moon.position;
-      for (var dgr = 0; dgr < discoGrid.length; dgr++) discoGrid[dgr].rotate(1.2, rotCenter);
+      for (var dgr = 0; dgr < discoGrid.length; dgr++) discoGrid[dgr].rotate(2.4, rotCenter);
     }
-    // Star twinkle every 4 frames
-    if (frameCount % 4 === 0) {
+    // Star twinkle every 8 frames (was 4)
+    if (frameCount % 8 === 0) {
       for (var si3 = 0; si3 < stars.length; si3++) {
         var s = stars[si3];
         var twinkle = Math.sin(time * s.twinkleSpeed + s.twinklePhase) * 0.3 + 0.7;
