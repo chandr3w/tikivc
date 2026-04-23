@@ -1,12 +1,18 @@
 // ─── Canvas: HiDPI + correct viewport sizing ────────────────────────────────
 // Paper.js v0.22 sizes the canvas buffer from window.innerHeight, which on
 // iOS Safari is the *visible* viewport (excludes the URL bar). But the canvas
-// CSS uses 100lvh (the full screen including space behind chrome), so the
-// browser stretches a too-small buffer to fill the larger display — tree
-// looks squashed AND blurry. Fix: read the canvas's actual rendered size
-// (CSS-driven, so it's lvh) and size the backing buffer to that × dpr.
+// CSS uses the true viewport (via position:fixed inset:0), so the browser
+// stretches a too-small buffer to fill the larger display — tree looks
+// squashed AND blurry. Fix: read the canvas's actual rendered size and size
+// the backing buffer to that × dpr.
+//
+// DPR is capped at 2: iPhone Pro reports dpr=3, which means 9× the pixels to
+// fill per frame vs dpr=1. The visual difference between dpr=2 and dpr=3 is
+// imperceptible for cartoon vector graphics, but the perf hit is real —
+// dpr=3 dragged iPhone frame rate below 60fps, which made physics and the
+// idle drift (tree resetting to center) feel stuck.
 (function setupCanvas() {
-  var dpr = window.devicePixelRatio || 1;
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
   var canvas = document.getElementById('canvas');
   var ctx = canvas.getContext('2d');
 
