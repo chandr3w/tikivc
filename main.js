@@ -65,6 +65,16 @@
 var audioEl = null;
 var TIKI_LOOP_START = 52.0;
 
+// Aggressive preload: fetch the MP3 as a Blob immediately on page load and
+// swap the <audio> element's src to a blob: URL. iOS Safari often defers
+// the actual download for `<audio preload="auto">` until first play() call —
+// which on this page is when the hurricane triggers, causing a noticeable
+// stall mid-storm. Pre-fetching guarantees the bytes are in memory by the
+// time the user hits "I can handle it".
+//
+// (Preload runs from a plain <script> tag in index.html — paperscript's
+// compile step drops top-level Promise chains here.)
+
 function initAudio() {
   audioEl = document.getElementById('storm-audio');
   if (!audioEl) return;
@@ -324,14 +334,14 @@ function buildScene() {
   }
 
   // ─── Night stars (hidden during day) ───
-  // Fewer stars on mobile — at 40 the sky still feels twinkly during the
-  // storm but we cut path renders in half during peak chaos.
-  var starCount = (('ontouchstart' in window) || navigator.maxTouchPoints > 0) ? 40 : 80;
-  for (var si = 0; si < starCount; si++) {
+  // Star size bumped (1.5–3.5 vs 0.5–2.5) — sub-pixel stars get smeared
+  // into invisibility by anti-aliasing on retina displays. Opacity floor
+  // bumped too so even the dimmest twinkle phase stays visible.
+  for (var si = 0; si < 80; si++) {
     var sxs = Math.round(Math.random() * w);
     var sys = Math.round(Math.random() * h * 0.7);
-    var starSize = 0.5 + Math.random() * 2;
-    var baseOp = 0.2 + Math.random() * 0.5;
+    var starSize = 1.5 + Math.random() * 2;
+    var baseOp = 0.5 + Math.random() * 0.4;
     var star = new Path.Circle(new Point(sxs, sys), starSize);
     star.fillColor = new Color(1, 1, 1, baseOp);
     star.opacity = 0;

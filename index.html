@@ -26,6 +26,26 @@
        Browser preloads via preload="auto". playsinline keeps it from taking
        over the screen on iOS. -->
   <audio id="storm-audio" src="tikinoise.mp3" preload="auto" playsinline webkit-playsinline></audio>
+  <script>
+    // Aggressive audio preload — fetch the MP3 as a Blob and swap the audio
+    // element's src to a blob: URL so the entire file is in memory before
+    // any play() call. iOS Safari often defers <audio preload="auto"> until
+    // first user gesture, which on this page is the storm-trigger moment;
+    // pre-fetching avoids the mid-storm stall.
+    //
+    // Lives here (not in main.js) because main.js is parsed as paperscript
+    // and Paper.js v0.22's compile step drops top-level Promise chains.
+    fetch('tikinoise.mp3', { credentials: 'omit' })
+      .then(function(r) { return r.blob(); })
+      .then(function(blob) {
+        var el = document.getElementById('storm-audio');
+        if (el) {
+          el.src = URL.createObjectURL(blob);
+          el.load();
+        }
+      })
+      .catch(function(err) { console.warn('storm audio preload failed', err); });
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
