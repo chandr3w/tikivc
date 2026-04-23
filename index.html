@@ -21,8 +21,11 @@
   <meta name="twitter:image" content="https://tiki.vc/og-image.png">
   <meta name="theme-color" content="#4AAFED">
 
-  <!-- Preload the storm audio so it's ready by the time the hurricane triggers -->
-  <link rel="preload" as="fetch" href="tikinoise.mp3" type="audio/mpeg" crossorigin="anonymous">
+  <!-- Storm ambience audio. HTMLAudioElement plays more reliably on iOS than
+       Web Audio (no AudioContext suspend quirks, no cross-gesture unlock drift).
+       Browser preloads via preload="auto". playsinline keeps it from taking
+       over the screen on iOS. -->
+  <audio id="storm-audio" src="tikinoise.mp3" preload="auto" playsinline webkit-playsinline></audio>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 

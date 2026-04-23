@@ -1,156 +1,121 @@
-// ─── HiDPI / Retina ──────────────────────────────────────────────────────────
-// Paper.js v0.22 predates devicePixelRatio — it sets canvas.width in CSS px,
-// so every drawn pixel becomes a dpr×dpr block on retina displays (blurry).
-// Fix: size the canvas BACKING buffer to CSS × dpr, leave CSS size alone, and
-// ctx.setTransform(dpr,…) as the base state so Paper's matrix composes on top.
-(function setupHiDPI() {
+// ─── Canvas: HiDPI + correct viewport sizing ────────────────────────────────
+// Paper.js v0.22 sizes the canvas buffer from window.innerHeight, which on
+// iOS Safari is the *visible* viewport (excludes the URL bar). But the canvas
+// CSS uses 100lvh (the full screen including space behind chrome), so the
+// browser stretches a too-small buffer to fill the larger display — tree
+// looks squashed AND blurry. Fix: read the canvas's actual rendered size
+// (CSS-driven, so it's lvh) and size the backing buffer to that × dpr.
+(function setupCanvas() {
   var dpr = window.devicePixelRatio || 1;
-  if (dpr === 1) return;
   var canvas = document.getElementById('canvas');
   var ctx = canvas.getContext('2d');
 
-  var apply = function(w, h) {
+  function getDisplaySize() {
+    var rect = canvas.getBoundingClientRect();
+    return { w: Math.max(1, Math.round(rect.width)), h: Math.max(1, Math.round(rect.height)) };
+  }
+
+  function apply(w, h) {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
+    // Reset to identity then scale, so re-applying on resize doesn't compound.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  };
+  }
 
-  // Paper.js has already sized the canvas (CSS px) by the time this paperscript
-  // runs. Upgrade the buffer now, and wrap setViewSize so future resizes do the
-  // same. We override the instance method, which shadows the prototype version
-  // that paper.js's window-resize handler calls via `that.setViewSize(...)`.
-  apply(view._viewSize._width, view._viewSize._height);
+  // Initial sync — Paper.js has already sized the canvas (using innerHeight,
+  // which on iOS undershoots lvh). Re-size to actual CSS-driven dimensions.
+  var ds = getDisplaySize();
+  apply(ds.w, ds.h);
+  view._viewSize.set(ds.w, ds.h, true);
+  view._bounds = null;
 
-  view.setViewSize = function(size) {
-    size = Size.read(arguments);
-    var w = size.width, h = size.height;
+  // Wrap setViewSize: ignore Paper.js's computed size (also from innerHeight),
+  // always re-read from the CSS layout. Paper.js's window-resize handler calls
+  // `that.setViewSize(...)`; instance methods shadow the prototype, so this is
+  // picked up at call time.
+  view.setViewSize = function(/* size ignored — re-derived from CSS */) {
+    var ds = getDisplaySize();
+    var w = ds.w, h = ds.h;
     var prev = new Size(this._viewSize._width, this._viewSize._height);
     if (w === prev.width && h === prev.height) return;
     apply(w, h);
     this._viewSize.set(w, h, true);
     this._bounds = null;
     this._redrawNeeded = true;
-    if (this.onResize) this.onResize({ size: size, delta: size.subtract(prev) });
+    if (this.onResize) {
+      this.onResize({ size: new Size(w, h), delta: new Size(w - prev.width, h - prev.height) });
+    }
     this._redraw();
   };
 })();
 
 // ─── Audio ───────────────────────────────────────────────────────────────────
-// Uses tikinoise.mp3 for the storm ambience — starts at 52s, loop+pause/resume
-var audioContext, gainNode, windGain;
-var tikiBuffer = null;       // decoded mp3 data
-var tikiSource = null;        // currently playing source (if any)
-var tikiStartOffset = 52.0;   // where in the file we are (persists across pauses)
-var tikiStartedAt = 0;        // audioContext.currentTime when last started
+// HTMLAudioElement-based playback. Web Audio on iOS had too many edge cases
+// (AudioContext suspension between gestures, gain values not propagating
+// across resume, silent buffer unlock TTL). The <audio> element sidesteps all
+// of that — browser handles routing, no context to suspend, simple volume.
+// Only twist: the file has 52s of intro we want to skip, so we manually jump
+// back to 52s on 'ended' instead of using native loop (which loops from 0).
+var audioEl = null;
 var TIKI_LOOP_START = 52.0;
-var tikiPendingStart = false; // set if startTikiAudio was called before buffer was ready
-var tikiArrayBufferPromise = null; // eagerly kick off the MP3 download on page load
-
-// Start downloading the MP3 immediately — AudioContext can't be created until
-// a user gesture, but the bytes can be cached. credentials: 'omit' matches the
-// <link rel="preload" crossorigin="anonymous"> so the browser reuses its cache.
-tikiArrayBufferPromise = fetch('tikinoise.mp3', { credentials: 'omit' })
-  .then(function(res) { return res.arrayBuffer(); })
-  .catch(function(err) { console.warn('Failed to preload tikinoise.mp3', err); return null; });
 
 function initAudio() {
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  audioEl = document.getElementById('storm-audio');
+  if (!audioEl) return;
 
-  // iOS audio unlock — play a silent 1-sample buffer within the user gesture
-  // to transition the context to running state. Without this, iOS Safari
-  // sometimes keeps Web Audio silent even after resume().
-  try {
-    var silent = audioContext.createBuffer(1, 1, 22050);
-    var unlock = audioContext.createBufferSource();
-    unlock.buffer = silent;
-    unlock.connect(audioContext.destination);
-    unlock.start(0);
-  } catch(e) { /* ignore */ }
-
-  if (audioContext.state === 'suspended') audioContext.resume();
-  gainNode = audioContext.createGain();
-  gainNode.gain.value = 1.0;
-  gainNode.connect(audioContext.destination);
-
-  windGain = audioContext.createGain();
-  windGain.gain.value = 0;
-  windGain.connect(gainNode);
-
-  // Some platforms suspend the context again when the tab is backgrounded or
-  // when the user switches apps. Resume on every subsequent user gesture —
-  // touchmove included, since on mobile the user may drag for many seconds
-  // between taps before the hurricane triggers audio.
-  var resumeOnGesture = function() {
-    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
-  };
-  document.addEventListener('touchstart', resumeOnGesture, { passive: true });
-  document.addEventListener('touchmove', resumeOnGesture, { passive: true });
-  document.addEventListener('mousedown', resumeOnGesture, { passive: true });
-
-  // Decode the pre-fetched bytes as soon as we have a context
-  tikiArrayBufferPromise
-    .then(function(data) {
-      if (!data) return null;
-      return audioContext.decodeAudioData(data);
-    })
-    .then(function(buf) {
-      if (!buf) return;
-      tikiBuffer = buf;
-      // If the hurricane already tried to start, kick it off now
-      if (tikiPendingStart) {
-        tikiPendingStart = false;
-        startTikiAudio();
+  var seekToLoopStart = function() {
+    try {
+      if (isFinite(audioEl.duration) && audioEl.duration > TIKI_LOOP_START) {
+        audioEl.currentTime = TIKI_LOOP_START;
       }
-    })
-    .catch(function(err) { console.warn('Failed to decode tikinoise.mp3', err); });
-}
-
-// Start/resume playback of tikinoise.mp3 from where we paused (or 52s first time)
-function startTikiAudio() {
-  if (!audioContext) return;
-  if (!tikiBuffer) { tikiPendingStart = true; return; } // will auto-start when buffer is ready
-  if (tikiSource) return; // already playing
-
-  var actuallyStart = function() {
-    if (tikiSource) return; // guard: resume promise could race with a second call
-    tikiSource = audioContext.createBufferSource();
-    tikiSource.buffer = tikiBuffer;
-    tikiSource.loop = true;
-    tikiSource.loopStart = TIKI_LOOP_START;
-    tikiSource.loopEnd = tikiBuffer.duration;
-    tikiSource.connect(windGain);
-    tikiStartedAt = audioContext.currentTime;
-    tikiSource.start(0, tikiStartOffset);
+    } catch(e) { /* seeking can throw if metadata isn't loaded yet */ }
   };
 
-  // iOS frequently re-suspends the AudioContext between gestures. resume() is
-  // async — if we called start() while the context was still suspended, the
-  // source would run silent and stay silent. Wait for resume to settle.
-  if (audioContext.state === 'suspended') {
-    audioContext.resume().then(actuallyStart, actuallyStart);
+  // Manual loop: reset to the intro-less start position when the file ends.
+  audioEl.addEventListener('ended', function() {
+    seekToLoopStart();
+    audioEl.play().catch(function(){});
+  });
+
+  audioEl.volume = 0;
+
+  // iOS unlock — play once (muted) from within the user gesture that called
+  // initAudio. After the promise resolves, pause and seek to the loop point.
+  audioEl.muted = true;
+  var p;
+  try { p = audioEl.play(); } catch(e) { /* play() may throw synchronously */ }
+  var finalize = function() {
+    try { audioEl.pause(); } catch(e) {}
+    audioEl.muted = false;
+    seekToLoopStart();
+  };
+  if (p && p.then) {
+    p.then(finalize, function() { audioEl.muted = false; });
   } else {
-    actuallyStart();
+    // Older browsers: play() returns undefined. Give it a beat then pause.
+    setTimeout(finalize, 60);
   }
 }
 
-// Pause: stop the source but remember where we were so we can resume
+function startTikiAudio() {
+  if (!audioEl) return;
+  if (isFinite(audioEl.duration) && audioEl.currentTime < TIKI_LOOP_START - 0.5) {
+    try { audioEl.currentTime = TIKI_LOOP_START; } catch(e) {}
+  }
+  audioEl.volume = 1.0;
+  var p;
+  try { p = audioEl.play(); } catch(e) {}
+  if (p && p.catch) p.catch(function(err){ console.warn('storm play failed', err); });
+}
+
 function pauseTikiAudio() {
-  if (!tikiSource || !audioContext || !tikiBuffer) return;
-  // Update offset by how long we've been playing, wrapping in the loop region
-  var elapsed = audioContext.currentTime - tikiStartedAt;
-  var loopLen = tikiBuffer.duration - TIKI_LOOP_START;
-  // How far have we traveled past the start offset?
-  var rel = tikiStartOffset - TIKI_LOOP_START + elapsed;
-  rel = ((rel % loopLen) + loopLen) % loopLen; // positive modulo
-  tikiStartOffset = TIKI_LOOP_START + rel;
-  try { tikiSource.stop(); } catch(e) {}
-  try { tikiSource.disconnect(); } catch(e) {}
-  tikiSource = null;
+  if (!audioEl) return;
+  try { audioEl.pause(); } catch(e) {}
 }
 
 function setWindIntensity(v) {
-  if (!windGain) return;
-  windGain.gain.value = Math.min(1, v);
+  if (!audioEl) return;
+  audioEl.volume = Math.min(1, Math.max(0, v));
 }
 
 // Thunder / modulation are no-ops now since the mp3 contains the storm sound
@@ -158,7 +123,7 @@ function triggerThunder() { /* sound is in the mp3 */ }
 function modulateWind() { /* sound is in the mp3 */ }
 
 function muteAudio() {
-  if (windGain) windGain.gain.value = 0;
+  if (audioEl) audioEl.volume = 0;
   pauseTikiAudio();
 }
 
@@ -175,13 +140,13 @@ var physics = new ParticleSystem(+0.34, -3, 0, restDrag);
 
 var numPoints = 10;
 // Tree was sized for ~1000px+ wide displays. On narrow (mobile portrait)
-// viewports the tree fills the entire screen, which reads as "zoomed in" —
-// scale down to leave more sky/sand around it.
+// viewports a 1:1 tree dominates; a gentle scale-down gives breathing room.
+// With the lvh-based viewport fix above, we no longer need an aggressive
+// scale — 0.88 at 320px to 1.0 at 800px keeps the tree substantial.
 function getTreeScale() {
   var w = view.size.width;
   if (w >= 800) return 1.0;
-  // Linear from 0.70 at 320px → 1.0 at 800px.
-  return Math.max(0.70, 0.70 + ((w - 320) / 480) * 0.30);
+  return Math.max(0.88, 0.88 + ((w - 320) / 480) * 0.12);
 }
 var treeScale = getTreeScale();
 var segmentLength = getSegmentLength();
