@@ -109,7 +109,9 @@ async function submitAndDownload() {
   const fullStats = JSON.stringify(state.stats);
   const truncated = fullStats.length > 30000 ? fullStats.slice(0, 30000) : fullStats;
 
-  const fd = new FormData();
+  // URLSearchParams → application/x-www-form-urlencoded, the encoding
+  // Google Forms /formResponse accepts most reliably under `no-cors`.
+  const fd = new URLSearchParams();
   fd.append(ENTRY.name, name);
   fd.append(ENTRY.email, email);
   fd.append(ENTRY.optin, getOptin() ? "Yes" : "");
@@ -122,8 +124,14 @@ async function submitAndDownload() {
   fd.append(ENTRY.streak, String(t.current_streak));
   fd.append(ENTRY.full_stats, truncated);
 
+  console.log("submitting form payload:", fd.toString());
   try {
-    await fetch(FORM_ENDPOINT, {method: "POST", mode: "no-cors", body: fd});
+    await fetch(FORM_ENDPOINT, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {"Content-Type": "application/x-www-form-urlencoded"},
+      body: fd.toString(),
+    });
   } catch (e) {
     // no-cors → opaque response. We optimistically continue.
     console.warn("form post error (likely opaque):", e);
