@@ -358,7 +358,14 @@ def render(use_logo, out_path):
     # nominal zoom doubles. Half that again per spec → effective 0.5x.
     try:
         atas = mimage.imread('/atas-logo.png')
-        ab = AnnotationBbox(OffsetImage(atas, zoom=LOGO_ZOOM * (400 / DPI) * 0.5),
+        # resample=True + lanczos: matplotlib resamples the image to the on-canvas
+        # output size with a high-quality kernel instead of nearest-neighbor.
+        # Without this, small-zoom OffsetImages render visibly chunky.
+        oi = OffsetImage(atas,
+                         zoom=LOGO_ZOOM * (400 / DPI) * 0.5,
+                         resample=True,
+                         interpolation='lanczos')
+        ab = AnnotationBbox(oi,
                             (LEFT, FOOTER_Y),
                             xycoords='figure fraction', frameon=False,
                             box_alignment=(0, 0.5), zorder=10)
@@ -368,7 +375,7 @@ def render(use_logo, out_path):
         fig.text(LEFT, FOOTER_Y, "ATAS",
                  fontsize=8, color=INK, fontfamily=MONO, fontweight=500,
                  ha='left', va='center')
-    fig.text(RIGHT, FOOTER_Y, "TIKI.VC/MYMONTHWITHCLAUDE",
+    fig.text(RIGHT, FOOTER_Y, "ANDREW@ATAS.VC  ·  TIKI.VC/MYMONTHWITHCLAUDE",
              fontsize=7, color=INK_4, fontfamily=MONO,
              ha='right', va='center')
 
