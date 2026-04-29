@@ -242,6 +242,9 @@ def render(use_logo, out_path):
     for row in range(n_weeks):
         for col in range(7):
             cur = grid_start + timedelta(days=row*7 + col)
+            # Skip cells outside the actual window (no leading/trailing blanks).
+            if cur < first_date or cur > last_date:
+                continue
             info = day_lookup.get(cur.isoformat())
             x0 = col + cell_pad
             y0 = row + cell_pad
@@ -351,11 +354,11 @@ def render(use_logo, out_path):
                                  transform=fig.transFigure))
 
     # ATAS logo bottom-left (loaded from /atas-logo.png in Pyodide FS).
-    # LOGO_ZOOM was tuned for DPI=400; the in-browser renderer uses DPI=200,
-    # so double the zoom to preserve the same physical size.
+    # LOGO_ZOOM was tuned for DPI=400; in-browser renders at DPI=200, so
+    # nominal zoom doubles. Half that again per spec → effective 0.5x.
     try:
         atas = mimage.imread('/atas-logo.png')
-        ab = AnnotationBbox(OffsetImage(atas, zoom=LOGO_ZOOM * (400 / DPI)),
+        ab = AnnotationBbox(OffsetImage(atas, zoom=LOGO_ZOOM * (400 / DPI) * 0.5),
                             (LEFT, FOOTER_Y),
                             xycoords='figure fraction', frameon=False,
                             box_alignment=(0, 0.5), zorder=10)
@@ -365,8 +368,7 @@ def render(use_logo, out_path):
         fig.text(LEFT, FOOTER_Y, "ATAS",
                  fontsize=8, color=INK, fontfamily=MONO, fontweight=500,
                  ha='left', va='center')
-    fig.text(RIGHT, FOOTER_Y,
-             f"SOURCE  ~/.CLAUDE/PROJECTS  ·  {WINDOW_DAYS} DAYS  ·  TIKI.VC/MYMONTHWITHCLAUDE",
+    fig.text(RIGHT, FOOTER_Y, "TIKI.VC/MYMONTHWITHCLAUDE",
              fontsize=7, color=INK_4, fontfamily=MONO,
              ha='right', va='center')
 
