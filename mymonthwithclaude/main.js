@@ -43,6 +43,15 @@ async function onChooseFolder() {
     const windowDays = getWindow();
     const stats = await aggregate(dirHandle, windowDays, (s) => setStatus(s));
     state.stats = stats;
+    console.log("aggregate result:", stats);
+    if (stats.files_scanned === 0) {
+      setStatus("No .jsonl files found. Did you pick ~/.claude/projects (or its parent)? You can also pick a single project folder. Check the browser console for details.");
+      return;
+    }
+    if (stats.totals.messages === 0) {
+      setStatus(`Found ${stats.files_scanned} files but 0 messages in the last ${windowDays} days. Try a longer window, or check the timestamps in your JSONL.`);
+      return;
+    }
     setStatus(`aggregated ${stats.files_scanned} files · ${stats.totals.messages} messages · ${stats.totals.active_days}/${windowDays} active days. Now rendering…`);
     await renderNow();
   } catch (e) {

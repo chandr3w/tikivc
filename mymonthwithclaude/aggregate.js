@@ -33,17 +33,15 @@ function isoDay(d) {
   return `${y}-${m}-${day}`;
 }
 
-async function* iterJsonlFiles(dirHandle) {
-  // One level deep: each project is a subfolder, JSONLs inside.
+async function* iterJsonlFiles(dirHandle, depth = 0) {
+  // Recursive (bounded depth) so it works whether the user picks
+  // ~/.claude, ~/.claude/projects, or a single project folder.
+  if (depth > 4) return;
   for await (const [name, handle] of dirHandle.entries()) {
-    if (handle.kind === "directory") {
-      for await (const [fn, fh] of handle.entries()) {
-        if (fh.kind === "file" && fn.endsWith(".jsonl")) {
-          yield fh;
-        }
-      }
-    } else if (handle.kind === "file" && name.endsWith(".jsonl")) {
+    if (handle.kind === "file" && name.endsWith(".jsonl")) {
       yield handle;
+    } else if (handle.kind === "directory") {
+      yield* iterJsonlFiles(handle, depth + 1);
     }
   }
 }
