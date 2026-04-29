@@ -39,6 +39,10 @@ async function onChooseFolder() {
     return;
   }
   setStatus("aggregating…");
+  // Reset prior render so the user submits + regenerates intentionally.
+  state.pngBlob = null;
+  $("download").disabled = true;
+  $("submit").disabled = true;
   try {
     const windowDays = getWindow();
     const stats = await aggregate(dirHandle, windowDays, (s) => setStatus(s));
@@ -52,8 +56,8 @@ async function onChooseFolder() {
       setStatus(`Found ${stats.files_scanned} files but 0 messages in the last ${windowDays} days. Try a longer window, or check the timestamps in your JSONL.`);
       return;
     }
-    setStatus(`aggregated ${stats.files_scanned} files · ${stats.totals.messages} messages · ${stats.totals.active_days}/${windowDays} active days. Now rendering…`);
-    await renderNow();
+    setStatus(`Aggregated ${stats.files_scanned} files · ${stats.totals.messages} messages · ${stats.totals.active_days}/${windowDays} active days. Click "Submit & generate" to create your image.`);
+    $("submit").disabled = false;
   } catch (e) {
     console.error(e);
     setStatus("aggregation failed: " + e.message);
@@ -61,30 +65,20 @@ async function onChooseFolder() {
 }
 
 async function renderNow() {
-  if (!state.stats) {
-    setStatus("Pick your ~/.claude/projects folder first.");
-    return;
-  }
-  try {
-    const blob = await render({
-      stats: state.stats,
-      displayName: getDisplayName(),
-      useLogo: getUseLogo(),
-      windowDays: getWindow(),
-      onStatus: (s) => setStatus(s),
-    });
-    state.pngBlob = blob;
-    const url = URL.createObjectURL(blob);
-    const img = $("preview");
-    img.src = url;
-    img.style.display = "block";
-    $("download").disabled = false;
-    $("submit").disabled = false;
-    setStatus("rendered. Download or submit below.");
-  } catch (e) {
-    console.error(e);
-    setStatus("render failed: " + e.message);
-  }
+  if (!state.stats) return;
+  const blob = await render({
+    stats: state.stats,
+    displayName: getDisplayName(),
+    useLogo: getUseLogo(),
+    windowDays: getWindow(),
+    onStatus: (s) => setStatus(s),
+  });
+  state.pngBlob = blob;
+  const url = URL.createObjectURL(blob);
+  const img = $("preview");
+  img.src = url;
+  img.style.display = "block";
+  $("download").disabled = false;
 }
 
 function downloadPNG() {
@@ -97,14 +91,9 @@ function downloadPNG() {
   document.body.removeChild(a);
 }
 
-async function submitAndDownload() {
-  if (!state.stats || !state.pngBlob) return;
+async function submitToForm() {
   const name = getDisplayName();
   const email = getEmail();
-  if (!email) {
-    setStatus("Please enter an email.");
-    return;
-  }
   const t = state.stats.totals;
   const fullStats = JSON.stringify(state.stats);
   const truncated = fullStats.length > 30000 ? fullStats.slice(0, 30000) : fullStats;
@@ -136,17 +125,45 @@ async function submitAndDownload() {
     // no-cors → opaque response. We optimistically continue.
     console.warn("form post error (likely opaque):", e);
   }
-  setStatus("Thanks! Submitted. Downloading PNG…");
-  downloadPNG();
+}
+
+async function onSubmitAndGenerate() {
+  if (!state.stats) {
+    setStatus("Pick your ~/.claude/projects folder first.");
+    return;
+  }
+  const email = getEmail();
+  if (!email) {
+    setStatus("Please enter an email before submitting.");
+    return;
+  }
+  $("submit").disabled = true;
+  try {
+    setStatus("submitting…");
+    await submitToForm();
+    setStatus("Submitted. Generating PNG…");
+    await renderNow();
+    setStatus("Done. Click \"Download PNG\" to save.");
+  } catch (e) {
+    console.error(e);
+    setStatus("generate failed: " + e.message);
+  } finally {
+    $("submit").disabled = false;
+  }
 }
 
 window.addEventListener("DOMContentLoaded", () => {
   $("choose").addEventListener("click", onChooseFolder);
   $("download").addEventListener("click", downloadPNG);
-  $("submit").addEventListener("click", submitAndDownload);
-  // Re-render when style/window changes if we already have stats.
+  $("submit").addEventListener("click", onSubmitAndGenerate);
+  // If style/window changes after a render, regenerate locally (no resubmit).
   document.querySelectorAll('input[name="style"], input[name="window"], #name').forEach(el => {
-    el.addEventListener("change", () => { if (state.stats) renderNow(); });
+    el.addEventListener("change", async () => {
+      if (state.pngBlob) {
+        try { setStatus("regenerating…"); await renderNow(); setStatus("Done."); }
+        catch (e) { setStatus("render failed: " + e.message); }
+      }
+    });
   });
   if (!window.showDirectoryPicker) {
     setStatus("This page needs the File System Access API (Chrome, Edge, Arc, Brave). Use one of those, or DM @andrewdchan for the CLI version.");
