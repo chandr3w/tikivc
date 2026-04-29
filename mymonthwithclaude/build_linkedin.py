@@ -209,7 +209,11 @@ def render(use_logo, out_path):
     # ---- HEATMAP ----
     hm_ax = fig.add_axes([HM_LEFT, HM_TOP - HM_H, HM_W, HM_H])
     # Number of weeks in window: ceil(window/7) +1 for partial
-    n_weeks = max(5, math.ceil((WINDOW_DAYS + 6) / 7))
+    # Number of weeks (rows) needed = ceil((window + start-of-week offset) / 7).
+    # Previous formula assumed worst-case offset=6 every time, which over-counted
+    # by a row in most cases (e.g. 30d starting on a Wed → 6 rows, 12 blank cells).
+    _offset = first_date.weekday()  # 0=Mon..6=Sun
+    n_weeks = math.ceil((WINDOW_DAYS + _offset) / 7)
     hm_ax.set_xlim(0, 7)
     hm_ax.set_ylim(-0.55, n_weeks + 0.20)
     hm_ax.invert_yaxis()
