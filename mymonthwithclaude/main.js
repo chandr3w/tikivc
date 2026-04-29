@@ -144,6 +144,10 @@ async function onSubmitAndGenerate() {
     setStatus("Please enter an email before submitting.");
     return;
   }
+  if (!getOptin()) {
+    setStatus("Email opt-in is required to submit.");
+    return;
+  }
   $("submit").disabled = true;
   try {
     setStatus("submitting…");
