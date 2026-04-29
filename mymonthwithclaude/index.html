@@ -12,67 +12,73 @@
 </head>
 <body>
 <header>
-  <a class="back" href="../">&larr; tiki.vc</a>
-  <h1>My Month with Claude</h1>
+  <div class="title">
+    <a class="back" href="../">&larr; tiki.vc</a>
+    <h1>My Month with Claude</h1>
+  </div>
+  <details class="privacy-fold">
+    <summary>Privacy</summary>
+    <ul>
+      <li><strong>What we receive on submit:</strong> name, email, opt-in, aggregated numeric stats.</li>
+      <li><strong>What we never receive:</strong> prompts, code, file paths, or any text content.</li>
+    </ul>
+  </details>
 </header>
 
 <main>
-  <p class="lede">
-    Drop your <code>~/.claude/projects</code> folder. We'll generate a sharable
-    LinkedIn-style summary of your month with Claude Code. Numbers stay on your
-    device unless you submit the form.
-  </p>
+  <section class="left-col">
+    <p class="lede">
+      Drop your <code>~/.claude/projects</code> folder. We'll generate a sharable
+      LinkedIn-style summary. Numbers stay on your device unless you submit.
+    </p>
 
-  <section class="form">
-    <label>
-      <span>Display name</span>
-      <input id="name" type="text" required placeholder="Andrew" value="Andrew">
-    </label>
-    <label>
-      <span>Email</span>
-      <input id="email" type="email" required placeholder="you@example.com">
-    </label>
+    <section class="form">
+      <label>
+        <span>Display name</span>
+        <input id="name" type="text" required placeholder="Your name">
+      </label>
+      <label>
+        <span>Email</span>
+        <input id="email" type="email" required placeholder="you@example.com">
+      </label>
 
-    <fieldset>
-      <legend>Window</legend>
-      <label class="radio"><input type="radio" name="window" value="30" checked> 30 days</label>
-      <label class="radio"><input type="radio" name="window" value="60"> 60 days</label>
-      <label class="radio"><input type="radio" name="window" value="90"> 90 days</label>
-    </fieldset>
+      <fieldset>
+        <legend>Window</legend>
+        <label class="radio"><input type="radio" name="window" value="30" checked> 30d</label>
+        <label class="radio"><input type="radio" name="window" value="60"> 60d</label>
+        <label class="radio"><input type="radio" name="window" value="90"> 90d</label>
+      </fieldset>
 
-    <fieldset>
-      <legend>Style</legend>
-      <label class="radio"><input type="radio" name="style" value="logo" checked> Logo</label>
-      <label class="radio"><input type="radio" name="style" value="wordmark"> Wordmark</label>
-    </fieldset>
+      <fieldset>
+        <legend>Style</legend>
+        <label class="radio"><input type="radio" name="style" value="logo" checked> Logo</label>
+        <label class="radio"><input type="radio" name="style" value="wordmark"> Wordmark</label>
+      </fieldset>
 
-    <label class="check">
-      <input id="optin" type="checkbox" checked>
-      <span>Notify me when Andrew ships new tools</span>
-    </label>
-  </section>
+      <label class="check">
+        <input id="optin" type="checkbox" checked>
+        <span>Notify me when Andrew ships new tools</span>
+      </label>
+    </section>
 
-  <section class="dropzone">
-    <button id="choose" type="button">Choose ~/.claude/projects folder</button>
+    <div class="dropzone">
+      <button id="choose" type="button">Choose ~/.claude/projects folder</button>
+    </div>
+
     <p id="status" class="status">Loading…</p>
+
+    <div class="actions">
+      <button id="submit" type="button" disabled>Submit &amp; generate</button>
+      <button id="download" type="button" disabled>Download PNG</button>
+    </div>
   </section>
 
-  <section class="render">
+  <section class="right-col">
     <img id="preview" alt="rendered preview" style="display:none">
+    <div id="preview-placeholder" class="placeholder">
+      Your rendered image will appear here
+    </div>
   </section>
-
-  <section class="actions">
-    <button id="submit" type="button" disabled>Submit &amp; generate</button>
-    <button id="download" type="button" disabled>Download PNG</button>
-  </section>
-
-  <footer class="privacy">
-    <h2>Privacy</h2>
-    <ul>
-      <li><strong>What we receive when you click Submit:</strong> your name, email, opt-in, and the aggregated summary stats (numeric totals + per-day token counts only).</li>
-      <li><strong>What we never receive:</strong> any prompts, code, file paths, or text content from your sessions.</li>
-    </ul>
-  </footer>
 </main>
 
 <script type="module" src="./main.js"></script>

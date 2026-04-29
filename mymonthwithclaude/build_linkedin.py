@@ -346,11 +346,23 @@ def render(use_logo, out_path):
                                  facecolor=LINE_2, alpha=0.6,
                                  transform=fig.transFigure))
 
-    fig.text(LEFT, FOOTER_Y, "tiki.vc/mymonthwithclaude",
-             fontsize=7, color=INK_4, fontfamily=MONO,
-             ha='left', va='center')
+    # ATAS logo bottom-left (loaded from /atas-logo.png in Pyodide FS).
+    # LOGO_ZOOM was tuned for DPI=400; the in-browser renderer uses DPI=200,
+    # so double the zoom to preserve the same physical size.
+    try:
+        atas = mimage.imread('/atas-logo.png')
+        ab = AnnotationBbox(OffsetImage(atas, zoom=LOGO_ZOOM * (400 / DPI)),
+                            (LEFT, FOOTER_Y),
+                            xycoords='figure fraction', frameon=False,
+                            box_alignment=(0, 0.5), zorder=10)
+        fig.add_artist(ab)
+    except Exception:
+        # If the asset isn't available, fall back to a text label.
+        fig.text(LEFT, FOOTER_Y, "ATAS",
+                 fontsize=8, color=INK, fontfamily=MONO, fontweight=500,
+                 ha='left', va='center')
     fig.text(RIGHT, FOOTER_Y,
-             f"SOURCE  ~/.CLAUDE/PROJECTS  ·  {WINDOW_DAYS} DAYS",
+             f"SOURCE  ~/.CLAUDE/PROJECTS  ·  {WINDOW_DAYS} DAYS  ·  TIKI.VC/MYMONTHWITHCLAUDE",
              fontsize=7, color=INK_4, fontfamily=MONO,
              ha='right', va='center')
 

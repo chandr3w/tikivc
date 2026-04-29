@@ -14,7 +14,7 @@ function setStatus(msg) {
 }
 
 function getDisplayName() {
-  return ($("name").value || "Andrew").trim();
+  return ($("name").value || "").trim();
 }
 
 function getEmail() { return $("email").value.trim(); }
@@ -78,6 +78,8 @@ async function renderNow() {
   const img = $("preview");
   img.src = url;
   img.style.display = "block";
+  const ph = $("preview-placeholder");
+  if (ph) ph.style.display = "none";
   $("download").disabled = false;
 }
 
@@ -132,7 +134,12 @@ async function onSubmitAndGenerate() {
     setStatus("Pick your ~/.claude/projects folder first.");
     return;
   }
+  const name = getDisplayName();
   const email = getEmail();
+  if (!name) {
+    setStatus("Please enter a display name before submitting.");
+    return;
+  }
   if (!email) {
     setStatus("Please enter an email before submitting.");
     return;

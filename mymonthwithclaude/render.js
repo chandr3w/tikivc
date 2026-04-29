@@ -32,13 +32,15 @@ async function getPyodide(onStatus) {
     // Fetch the build script and the logo, mount into Pyodide FS
     // Cache-bust so updates to build_linkedin.py / logo deploy without a hard
     // refresh from every visitor. Bumped on each meaningful renderer change.
-    const v = "3";
-    const [pyText, logoBytes] = await Promise.all([
+    const v = "4";
+    const [pyText, logoBytes, atasBytes] = await Promise.all([
       fetch(`./build_linkedin.py?v=${v}`, {cache: "no-cache"}).then(r => r.text()),
       fetch(`./assets/Claude_AI_logo.svg.png?v=${v}`).then(r => r.arrayBuffer()),
+      fetch(`./assets/atas-logo.png?v=${v}`).then(r => r.arrayBuffer()),
     ]);
     pyodide.FS.writeFile("/build_linkedin.py", pyText);
     pyodide.FS.writeFile("/logo.png", new Uint8Array(logoBytes));
+    pyodide.FS.writeFile("/atas-logo.png", new Uint8Array(atasBytes));
     return pyodide;
   })();
   return _pyodidePromise;
