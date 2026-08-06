@@ -132,7 +132,7 @@ export function applySharedTerms(stakeholders, terms = null) {
     return {
       ...shared,
       preferenceMultiple: preferenceEnabled ? Math.max(0, number(terms.preferenceMultiple || 1)) : 0,
-      seniority: terms.pariPassu === true ? 1 : (sequentialTier.get(holder.id) || 1),
+      seniority: terms.pariPassu === true ? 1 : Math.max(1, Math.round(number(holder.seniority || sequentialTier.get(holder.id) || 1))),
       participation,
       capMultiple: participation === "capped" ? Math.max(0, number(terms.participationCap || 0)) : 0,
       conversionPolicy: preferenceEnabled ? (terms.optimalConversion !== false ? "elective" : "force-preference") : "force-convert",

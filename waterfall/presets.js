@@ -8,43 +8,65 @@ const zeroTranches = () => [
   { id: "rollover", label: "Rollover equity", type: "rollover", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 85, years: 4 },
 ];
 
-const cleanHolder = (holder) => ({
-  className: "",
-  useSharedTerms: true,
-  preferenceEnabled: false,
-  optimalConversion: true,
-  participatingPreferred: false,
-  cappedParticipation: false,
-  cumulativeDividends: false,
-  antiDilution: false,
-  invested: 0,
-  preferenceMultiple: 0,
-  secondaryPreferenceMultiple: 0,
-  secondarySeniority: 1,
-  accruedDividend: 0,
-  dividendType: "none",
-  dividendRate: 0,
-  dividendYears: 0,
-  dividendPeriods: 1,
-  paidDividends: 0,
-  waiverPercent: 0,
-  priorDistributions: 0,
-  seniority: 1,
-  participation: "none",
-  capMultiple: 0,
-  strike: 0,
-  eligiblePercent: 100,
-  conversionPolicy: "elective",
-  ratchetType: "none",
-  conversionMultiplier: 1,
-  originalPrice: 0,
-  downRoundPrice: 0,
-  preRoundShares: 0,
-  newMoney: 0,
-  escrowEligible: true,
-  deferredEligible: true,
-  ...holder,
-});
+const cleanHolder = (holder) => {
+  const normalized = {
+    className: "",
+    series: "",
+    useSharedTerms: true,
+    preferenceEnabled: false,
+    optimalConversion: true,
+    participatingPreferred: false,
+    cappedParticipation: false,
+    cumulativeDividends: false,
+    antiDilution: false,
+    invested: 0,
+    roundSize: 0,
+    investorInvestment: 0,
+    preferenceMultiple: 0,
+    secondaryPreferenceMultiple: 0,
+    secondarySeniority: 1,
+    accruedDividend: 0,
+    dividendType: "none",
+    dividendRate: 0,
+    dividendYears: 0,
+    dividendPeriods: 1,
+    paidDividends: 0,
+    waiverPercent: 0,
+    priorDistributions: 0,
+    seniority: 1,
+    participation: "none",
+    capMultiple: 0,
+    strike: 0,
+    eligiblePercent: 100,
+    conversionPolicy: "elective",
+    ratchetType: "none",
+    conversionMultiplier: 1,
+    originalPrice: 0,
+    downRoundPrice: 0,
+    preRoundShares: 0,
+    newMoney: 0,
+    escrowEligible: true,
+    deferredEligible: true,
+    ...holder,
+  };
+  if (holder.roundSize == null && numberValue(holder.invested) > 0) normalized.roundSize = numberValue(holder.invested);
+  if (holder.investorInvestment == null && normalized.roundSize > 0) normalized.investorInvestment = normalized.roundSize;
+  if (!normalized.series) normalized.series = normalized.securityType === "common" ? "common" : "other";
+  return normalized;
+};
+
+const numberValue = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
+
+const standardPeopleCohorts = () => [
+  { id: "formation-founder", label: "Founders at formation", entryStage: "formation", equityType: "common", grantShares: 100_000, strike: 0.001, eligiblePercent: 100 },
+  { id: "seed-employee", label: "Employee joining at Seed", entryStage: "seed", equityType: "option", grantShares: 100_000, strike: 0.16, eligiblePercent: 100 },
+  { id: "series-a-employee", label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0.30, eligiblePercent: 100 },
+  { id: "series-b-employee", label: "Employee joining at Series B", entryStage: "series-b", equityType: "option", grantShares: 100_000, strike: 1.55, eligiblePercent: 100 },
+  { id: "series-c-employee", label: "Employee joining at Series C", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 7.76, eligiblePercent: 100 },
+  { id: "series-d-employee", label: "Employee joining at Series D", entryStage: "series-d", equityType: "option", grantShares: 100_000, strike: 22.02, eligiblePercent: 100 },
+  { id: "series-e-employee", label: "Employee joining at Series E", entryStage: "series-e", equityType: "option", grantShares: 100_000, strike: 38.80, eligiblePercent: 100 },
+  { id: "series-f-employee", label: "Employee joining at Series F", entryStage: "series-f", equityType: "option", grantShares: 100_000, strike: 87.68, eligiblePercent: 100 },
+];
 
 const sharedTerms = (overrides = {}) => ({
   liquidationPreference: false,
@@ -97,17 +119,18 @@ export const PRESETS = {
     },
     terms: sharedTerms(),
     tranches: zeroTranches(),
+    peopleCohorts: standardPeopleCohorts(),
     stakeholders: [
       cleanHolder({ id: "founders", name: "Founders and employees", className: "Common stock", securityType: "common", shares: 80_000_000 }),
-      cleanHolder({ id: "investors", name: "Investors", className: "Common stock", securityType: "common", shares: 20_000_000 }),
+      cleanHolder({ id: "series-a", name: "Series A investors", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 20_000_000, invested: 20_000_000, roundSize: 20_000_000, investorInvestment: 20_000_000, seniority: 1 }),
     ],
   },
   airtable: {
     meta: {
       preset: "airtable",
       title: "Airtable: announced acquisition",
-      description: "An as-converted common case for Bending Spoons' announced all-cash acquisition. Round-level shares use a 2024 corporate-filings-based cap-table snapshot; preferences default to 0×.",
-      asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. Modeled: $965M cash bridge, no debt, 58.734M outstanding shares and every preferred series converted to common with 0× liquidation preference. Share counts may have changed since the December 2024 cap-table report.",
+      description: "A clean as-converted model for Bending Spoons' announced all-cash acquisition, with market-standard closing holdbacks and seller expenses shown as explicit assumptions.",
+      asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. Modeled: $965M cash bridge, 1% seller transaction expenses, a 1% purchase-price-adjustment escrow, a 0.5% RWI-style indemnity retention and a $500K representative fund. No preference, pari passu, earnout, rollover, seller note, debt or management carve-out is assumed. Share counts use a December 2024 corporate-filings-based report and may have changed.",
       sources: [
         {
           label: "Axios: announced Airtable acquisition",
@@ -163,23 +186,32 @@ export const PRESETS = {
       debt: 0,
       debtLike: 0,
       workingCapital: 0,
-      transactionFees: 0,
+      transactionFees: 22_500_000,
       bonuses: 0,
       transferTaxes: 0,
       otherAdjustment: 0,
       discountRate: 12,
     },
     terms: sharedTerms(),
-    tranches: zeroTranches(),
+    tranches: [
+      { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 0, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
+      { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 22_500_000, treatment: "included", eligibility: "escrow", expectedPercent: 99, years: 0.25 },
+      { id: "indemnity-escrow", label: "RWI retention / indemnity escrow", type: "escrow", amount: 11_250_000, treatment: "included", eligibility: "escrow", expectedPercent: 98, years: 1.5 },
+      { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 500_000, treatment: "included", eligibility: "escrow", expectedPercent: 80, years: 2 },
+      { id: "seller-note", label: "Seller note", type: "note", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 95, years: 2 },
+      { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 50, years: 2 },
+      { id: "rollover", label: "Rollover equity", type: "rollover", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 85, years: 4 },
+    ],
+    peopleCohorts: standardPeopleCohorts(),
     stakeholders: [
-      cleanHolder({ id: "common", name: "Founders, employees and common holders (modeled)", className: "Common holders", securityType: "common", shares: 21_981_692, displayOrder: 0 }),
-      cleanHolder({ id: "seed", name: "Seed investors (Caffeinated, Freestyle, DCVC and others)", className: "Seed (converted common)", securityType: "preferred", shares: 3_852_577, invested: 3_000_000, preferenceMultiple: 0, displayOrder: 1 }),
-      cleanHolder({ id: "series-a", name: "Series A investors (CRV and angels)", className: "Series A (converted common)", securityType: "preferred", shares: 6_312_009, invested: 7_600_000, preferenceMultiple: 0, displayOrder: 2 }),
-      cleanHolder({ id: "series-b", name: "Series B investors (CRV, Caffeinated, Freestyle and Slow)", className: "Series B (converted common)", securityType: "preferred", shares: 11_391_392, invested: 59_000_000, preferenceMultiple: 0, displayOrder: 3 }),
-      cleanHolder({ id: "series-c", name: "Series C investors (Thrive, Benchmark, Coatue and syndicate)", className: "Series C (converted common)", securityType: "preferred", shares: 4_512_756, invested: 100_000_000, preferenceMultiple: 0, displayOrder: 4 }),
-      cleanHolder({ id: "series-d", name: "Series D investors (Thrive, Benchmark, Coatue, D1 and others)", className: "Series D (converted common)", securityType: "preferred", shares: 3_360_489, invested: 185_000_000, preferenceMultiple: 0, displayOrder: 5 }),
-      cleanHolder({ id: "series-e", name: "Series E investors (Greenoaks, WndrCo and existing investors)", className: "Series E (converted common)", securityType: "preferred", shares: 3_131_683, invested: 270_000_000, preferenceMultiple: 0, displayOrder: 6 }),
-      cleanHolder({ id: "series-f", name: "Series F investors (XN and syndicate)", className: "Series F (converted common)", securityType: "preferred", shares: 4_191_573, invested: 735_000_000, preferenceMultiple: 0, displayOrder: 7 }),
+      cleanHolder({ id: "common", name: "Founders, employees and common holders (modeled)", className: "Common holders", series: "common", securityType: "common", shares: 21_981_692, displayOrder: 0 }),
+      cleanHolder({ id: "seed", name: "Seed investors (Caffeinated, Freestyle, DCVC and others)", className: "Seed (converted common)", series: "seed", securityType: "preferred", shares: 3_852_577, invested: 3_000_000, roundSize: 3_000_000, investorInvestment: 3_000_000, preferenceMultiple: 0, seniority: 7, displayOrder: 1 }),
+      cleanHolder({ id: "series-a", name: "Series A investors (CRV and angels)", className: "Series A (converted common)", series: "series-a", securityType: "preferred", shares: 6_312_009, invested: 7_600_000, roundSize: 7_600_000, investorInvestment: 7_600_000, preferenceMultiple: 0, seniority: 6, displayOrder: 2 }),
+      cleanHolder({ id: "series-b", name: "Series B investors (CRV, Caffeinated, Freestyle and Slow)", className: "Series B (converted common)", series: "series-b", securityType: "preferred", shares: 11_391_392, invested: 59_000_000, roundSize: 59_000_000, investorInvestment: 59_000_000, preferenceMultiple: 0, seniority: 5, displayOrder: 3 }),
+      cleanHolder({ id: "series-c", name: "Series C investors (Thrive, Benchmark, Coatue and syndicate)", className: "Series C (converted common)", series: "series-c", securityType: "preferred", shares: 4_512_756, invested: 100_000_000, roundSize: 100_000_000, investorInvestment: 100_000_000, preferenceMultiple: 0, seniority: 4, displayOrder: 4 }),
+      cleanHolder({ id: "series-d", name: "Series D investors (Thrive, Benchmark, Coatue, D1 and others)", className: "Series D (converted common)", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 185_000_000, roundSize: 185_000_000, investorInvestment: 185_000_000, preferenceMultiple: 0, seniority: 3, displayOrder: 5 }),
+      cleanHolder({ id: "series-e", name: "Series E investors (Greenoaks, WndrCo and existing investors)", className: "Series E (converted common)", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 270_000_000, roundSize: 270_000_000, investorInvestment: 270_000_000, preferenceMultiple: 0, seniority: 2, displayOrder: 6 }),
+      cleanHolder({ id: "series-f", name: "Series F investors (XN and syndicate)", className: "Series F (converted common)", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 735_000_000, roundSize: 735_000_000, investorInvestment: 735_000_000, preferenceMultiple: 0, seniority: 1, displayOrder: 7 }),
     ],
   },
   brex: {
@@ -220,6 +252,7 @@ export const PRESETS = {
       discountRate: 12,
     },
     terms: sharedTerms(),
+    peopleCohorts: standardPeopleCohorts(),
     tranches: [
       { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_900_000_000, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
       ...zeroTranches().slice(1),
@@ -267,6 +300,7 @@ export const PRESETS = {
       preRoundShares: 70_000_000,
       newMoney: 10_000_000,
     }),
+    peopleCohorts: standardPeopleCohorts(),
     tranches: [
       { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 10_000_000, treatment: "included", eligibility: "all", expectedPercent: 95, years: 0 },
       { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 650_000, treatment: "included", eligibility: "escrow", expectedPercent: 98, years: 0.25 },
@@ -280,10 +314,10 @@ export const PRESETS = {
       cleanHolder({ id: "founders", name: "Founders", className: "Common stock", securityType: "common", shares: 30_000_000 }),
       cleanHolder({ id: "employees", name: "Employee common & RSUs", className: "Employee equity", securityType: "rsu", shares: 5_000_000 }),
       cleanHolder({ id: "options", name: "Options", className: "Options", securityType: "option", shares: 10_000_000, strike: 0.5, eligiblePercent: 75, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceMultiple: 1, seniority: 3 }),
-      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceMultiple: 1, seniority: 2, participation: "capped", capMultiple: 3 }),
-      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceMultiple: 2, seniority: 1, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
-      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceMultiple: 2, seniority: 1 }),
+      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceMultiple: 1, seniority: 3 }),
+      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceMultiple: 1, seniority: 2, participation: "capped", capMultiple: 3 }),
+      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceMultiple: 2, seniority: 1, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
+      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceMultiple: 2, seniority: 1 }),
     ],
   },
 };
@@ -293,7 +327,11 @@ export function clonePreset(name = "airtable") {
 }
 
 export function blankStakeholder(id) {
-  return cleanHolder({ id, name: "New stakeholder", securityType: "common", shares: 0 });
+  return cleanHolder({ id, name: "New investor round", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 0, seniority: 1 });
+}
+
+export function blankPeopleCohort(id) {
+  return { id, label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0, eligiblePercent: 100 };
 }
 
 export function blankTranche(id) {

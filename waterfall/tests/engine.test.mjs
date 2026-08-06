@@ -138,7 +138,7 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   const result = computeWaterfall(clean.stakeholders, bridge.equityValue);
   assert.equal(bridge.equityValue, 100_000_000);
   assert.equal(result.payouts.founders, 80_000_000);
-  assert.equal(result.payouts.investors, 20_000_000);
+  assert.equal(result.payouts["series-a"], 20_000_000);
   assert.equal(clean.tranches.every((tranche) => tranche.amount === 0), true);
   assert.equal(clean.terms.liquidationPreference, false);
   assert.equal(clean.terms.pariPassu, false);
@@ -157,6 +157,16 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
     deferredEligibleAll: true,
   });
   assert.equal(cleanTerms.every((holder) => holder.preferenceMultiple === 0 && holder.conversionPolicy === "force-convert"), true);
+
+  const stackedTerms = applySharedTerms(holders, {
+    liquidationPreference: true,
+    preferenceMultiple: 1,
+    pariPassu: false,
+    optimalConversion: true,
+    escrowEligibleAll: true,
+    deferredEligibleAll: true,
+  });
+  assert.deepEqual(stackedTerms.map((holder) => holder.seniority), [2, 1]);
 
   const pariTerms = applySharedTerms(holders, {
     liquidationPreference: true,
@@ -189,13 +199,18 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   const timing = allocateConsideration(airtable.stakeholders, result.payouts, airtable.tranches, airtable.deal.discountRate);
   const stock = Object.values(timing.results).reduce((sum, row) => sum + (row.tranches["buyer-stock"] || 0), 0);
   const cash = Object.values(timing.results).reduce((sum, row) => sum + row.closingCash, 0);
-  assert.equal(bridge.equityValue, 2_250_000_000);
-  assert.ok(Math.abs(result.pricePerShare - 38.3081937089) < 0.0001);
-  assert.ok(Math.abs(result.payouts["series-f"] - 160_571_590.43) < 0.01);
+  assert.equal(bridge.equityValue, 2_227_500_000);
+  assert.ok(Math.abs(result.pricePerShare - 37.9251117718) < 0.0001);
+  assert.ok(Math.abs(result.payouts["series-f"] - 158_965_874.52) < 0.01);
   assert.equal(stock, 0);
-  assert.ok(Math.abs(cash - 2_250_000_000) < 0.01);
+  assert.ok(Math.abs(cash - 2_193_250_000) < 0.01);
   assert.equal(airtable.stakeholders.reduce((sum, holder) => sum + holder.shares, 0), 58_734_171);
   assert.equal(airtable.stakeholders.filter((holder) => holder.securityType === "preferred").every((holder) => holder.preferenceMultiple === 0), true);
+  assert.equal(airtable.terms.pariPassu, false);
+  assert.equal(airtable.terms.optimalConversion, true);
+  assert.equal(airtable.peopleCohorts.length, 8);
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-f").seniority, 1);
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "seed").seniority, 7);
 }
 
 {
