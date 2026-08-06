@@ -2,7 +2,7 @@
 
 A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an explicit EV-to-equity equation, a share-class proceeds chart, and an exit-sensitivity curve. Methods and sources live in focused dialogs.
 
-The default Airtable model is a clean $8.0 billion cash acquisition. Airtable's disclosed funding history anchors the case; the purchase price, cash balance, cap table, option pool and strike price are labeled as model inputs. A separate Brex preset uses Capital One's completed April 2026 acquisition terms with an approximate holder split. The advanced preset demonstrates a complex venture-backed sale.
+The default Airtable model uses Bending Spoons' announced August 2026 all-cash acquisition: a reported $1.285 billion purchase price and $2.25 billion implied equity value including Airtable cash. A corporate-filings-based 2024 cap-table snapshot separates common and Seed through Series F cohorts, with each preferred series modeled as converted common and liquidation preferences set to zero. A separate Brex preset uses Capital One's completed April 2026 acquisition terms with an approximate holder split. The advanced preset demonstrates a complex venture-backed sale.
 
 ## Mechanics modeled
 
@@ -29,7 +29,7 @@ Open `http://127.0.0.1:8770`. The app has no runtime dependencies, sends no mode
 
 ## Airtable preset
 
-Airtable disclosed a $735 million Series F at an $11 billion pre-money valuation in December 2021 and $1.36 billion of total funding. It has not disclosed a current cap table or cash balance. The preset models an $8.0 billion cash acquisition with 100 million fully diluted units, a $500 million cash balance, no debt and no liquidation preferences. Each stakeholder name containing "modeled" is an approximation.
+Airtable disclosed a $735 million Series F at an $11 billion pre-money valuation in December 2021 and $1.36 billion of total funding. Axios reported Bending Spoons' announced acquisition on August 4, 2026 at a $1.285 billion cash purchase price and $2.25 billion implied equity value including cash and cash equivalents. The preset therefore models a $965 million cash bridge, no debt and 58,734,171 outstanding shares from a December 2024 Notice.co report built from corporate filings. Seed through Series F are shown separately with public round amounts, estimated gross MOIC and 0× liquidation preferences. The cap table may have changed since the report, and the transaction has not yet closed.
 
 ## Brex preset
 

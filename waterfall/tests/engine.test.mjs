@@ -149,12 +149,13 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   const timing = allocateConsideration(airtable.stakeholders, result.payouts, airtable.tranches, airtable.deal.discountRate);
   const stock = Object.values(timing.results).reduce((sum, row) => sum + (row.tranches["buyer-stock"] || 0), 0);
   const cash = Object.values(timing.results).reduce((sum, row) => sum + row.closingCash, 0);
-  assert.equal(bridge.equityValue, 8_000_000_000);
-  assert.ok(Math.abs(result.pricePerShare - 80.16) < 0.0001);
-  assert.ok(Math.abs(result.payouts.options - 625_280_000) < 0.01);
+  assert.equal(bridge.equityValue, 2_250_000_000);
+  assert.ok(Math.abs(result.pricePerShare - 38.3081937089) < 0.0001);
+  assert.ok(Math.abs(result.payouts["series-f"] - 160_571_590.43) < 0.01);
   assert.equal(stock, 0);
-  assert.ok(Math.abs(cash - 8_000_000_000) < 0.01);
-  assert.deepEqual([...new Set(airtable.stakeholders.map((holder) => holder.className))].sort(), ["Common stock", "Options", "RSUs / restricted stock"]);
+  assert.ok(Math.abs(cash - 2_250_000_000) < 0.01);
+  assert.equal(airtable.stakeholders.reduce((sum, holder) => sum + holder.shares, 0), 58_734_171);
+  assert.equal(airtable.stakeholders.filter((holder) => holder.securityType === "preferred").every((holder) => holder.preferenceMultiple === 0), true);
 }
 
 {

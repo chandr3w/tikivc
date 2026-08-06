@@ -1,7 +1,7 @@
-import { allocateConsideration, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js";
-import { PRESETS, blankStakeholder, blankTranche, clonePreset } from "./presets.js";
+import { allocateConsideration, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=5";
+import { PRESETS, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=5";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v3";
+const STORAGE_KEY = "tiki-exit-waterfall-v5";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -167,7 +167,7 @@ function calculateModel() {
     const timing = consideration.results[holder.id] || { entitlement: 0, closingCash: 0, expectedPresentValue: 0, tranches: {} };
     const deferred = Object.values(timing.tranches).reduce((sum, amount) => sum + amount, 0);
     return { holder, index, timing, deferred };
-  }).sort((a, b) => b.timing.entitlement - a.timing.entitlement);
+  }).sort((a, b) => optionalOrder(a.holder.displayOrder) - optionalOrder(b.holder.displayOrder) || b.timing.entitlement - a.timing.entitlement);
   return { bridge, incremental, grossProceeds, waterfall, consideration, rows };
 }
 
@@ -220,19 +220,23 @@ function renderClassProceeds(rows, waterfall, total) {
   const groups = new Map();
   rows.forEach((row) => {
     const className = row.holder.className?.trim() || inferredClassName(row.holder);
-    const current = groups.get(className) || { name: className, shares: 0, gross: 0, preference: 0, securityTypes: new Set() };
+    const current = groups.get(className) || { name: className, shares: 0, gross: 0, invested: 0, preference: 0, displayOrder: optionalOrder(row.holder.displayOrder), securityTypes: new Set() };
     current.shares += number(row.holder.shares) * Math.max(0, Math.min(100, number(row.holder.eligiblePercent))) / 100;
     current.gross += number(row.timing.entitlement);
+    current.invested += number(row.holder.invested);
     current.preference += number(waterfall.preferencePaid[row.holder.id]);
+    current.displayOrder = Math.min(current.displayOrder, optionalOrder(row.holder.displayOrder));
     current.securityTypes.add(labelForSecurity(row.holder.securityType));
     groups.set(className, current);
   });
-  const classes = [...groups.values()].sort((a, b) => b.gross - a.gross);
+  const classes = [...groups.values()].sort((a, b) => a.displayOrder - b.displayOrder || b.gross - a.gross);
   const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
   const stacked = classes.map((item, index) => `<span class="class-segment ${colors[index % colors.length]}" style="width:${total > 0 ? Math.max(0, item.gross / total * 100) : 0}%"><span class="sr-only">${escapeHtml(item.name)} ${escapeHtml(formatPercent(total > 0 ? item.gross / total : 0))}</span></span>`).join("");
   const rowsHtml = classes.map((item, index) => {
     const share = total > 0 ? item.gross / total : 0;
-    return `<div class="class-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml([...item.securityTypes].join(" + "))} · ${escapeHtml(formatShares(item.shares))}</small></span></div><div class="class-value"><strong>${formatMoney(item.gross)}</strong><small>${formatPercent(share)}${item.preference > 0 ? ` · ${formatMoney(item.preference)} preference` : ""}</small></div></div>`;
+    const basis = item.invested > 0 ? ` · ${formatMoney(item.invested)} invested` : "";
+    const multiple = item.invested > 0 ? ` · ${formatMultiple(item.gross / item.invested)}` : "";
+    return `<div class="class-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml([...item.securityTypes].join(" + "))} · ${escapeHtml(formatShares(item.shares))}${escapeHtml(basis)}</small></span></div><div class="class-value"><strong>${formatMoney(item.gross)}</strong><small>${formatPercent(share)}${multiple}${item.preference > 0 ? ` · ${formatMoney(item.preference)} preference` : ""}</small></div></div>`;
   }).join("");
   return `<section class="viz-panel class-panel" aria-labelledby="class-chart-title"><div class="viz-heading"><div><span class="section-label">class outcomes</span><h3 id="class-chart-title">Exit proceeds by share class</h3></div><p>gross distribution</p></div><div class="class-stack" role="img" aria-label="Gross proceeds allocated across ${classes.length} share classes">${stacked}</div><div class="class-breakdown">${rowsHtml || `<p class="empty-state">Add a security class to calculate proceeds.</p>`}</div></section>`;
 }
@@ -272,7 +276,8 @@ function renderPayoutTable(rows, waterfall, total) {
     const className = holder.className?.trim() || inferredClassName(holder);
     const securityLabel = labelForSecurity(holder.securityType);
     const classDetail = className === securityLabel ? detail : `${securityLabel} · ${detail}`;
-    return `<tr><td><strong>${escapeHtml(holder.name)}</strong><span class="subtext">${formatShares(holder.shares)} · ${Number(holder.eligiblePercent || 0).toFixed(0)}% eligible</span></td><td><strong>${escapeHtml(className)}</strong><span class="subtext">${escapeHtml(classDetail)}</span></td><td class="money">${formatMoney(waterfall.preferencePaid[holder.id] || 0)}</td><td class="money">${formatMoney(row.timing.entitlement)}</td><td class="money">${formatMoney(row.timing.closingCash)}</td><td class="money">${formatMoney(row.deferred)}</td><td class="money">${formatPercent(share)}<div class="allocation-meter" aria-hidden="true"><span style="width:${Math.min(100, share * 100)}%"></span></div></td></tr>`;
+    const returnDetail = number(holder.invested) > 0 ? ` · ${formatMoney(holder.invested)} invested · ${formatMultiple(row.timing.entitlement / number(holder.invested))}` : "";
+    return `<tr><td><strong>${escapeHtml(holder.name)}</strong><span class="subtext">${formatShares(holder.shares)} · ${Number(holder.eligiblePercent || 0).toFixed(0)}% eligible${escapeHtml(returnDetail)}</span></td><td><strong>${escapeHtml(className)}</strong><span class="subtext">${escapeHtml(classDetail)}</span></td><td class="money">${formatMoney(waterfall.preferencePaid[holder.id] || 0)}</td><td class="money">${formatMoney(row.timing.entitlement)}</td><td class="money">${formatMoney(row.timing.closingCash)}</td><td class="money">${formatMoney(row.deferred)}</td><td class="money">${formatPercent(share)}<div class="allocation-meter" aria-hidden="true"><span style="width:${Math.min(100, share * 100)}%"></span></div></td></tr>`;
   }).join("")}</tbody><tfoot><tr><td>total</td><td></td><td>${formatMoney(preferenceTotal)}</td><td>${formatMoney(total)}</td><td>${formatMoney(rows.reduce((sum,row)=>sum+row.timing.closingCash,0))}</td><td>${formatMoney(rows.reduce((sum,row)=>sum+row.deferred,0))}</td><td>100.00%</td></tr></tfoot></table></div></section>`;
 }
 
@@ -478,6 +483,8 @@ function formatShares(value) {
 }
 
 function formatPercent(value) { return `${(number(value) * 100).toFixed(2)}%`; }
+function formatMultiple(value) { return `${number(value).toFixed(2)}× gross`; }
+function optionalOrder(value) { return Number.isFinite(Number(value)) ? Number(value) : Number.MAX_SAFE_INTEGER; }
 function trimZeros(value, digits = 4) { return number(value).toFixed(digits).replace(/\.?0+$/, ""); }
 function labelForSecurity(value) { return { common:"Common stock", preferred:"Preferred stock", safe:"SAFE", note:"Convertible note", rsu:"RSU / restricted stock", option:"Option", warrant:"Warrant" }[value] || value; }
 function inferredClassName(holder) { return { common:"Common stock", preferred:"Preferred stock", safe:"SAFE", note:"Convertible notes", rsu:"RSUs / restricted stock", option:"Options", warrant:"Warrants" }[holder?.securityType] || "Other securities"; }
