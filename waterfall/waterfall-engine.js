@@ -8,7 +8,7 @@ export function computeEquityBridge(deal) {
     { key: "debtLike", label: "Debt-like items", value: number(deal.debtLike), sign: -1 },
     { key: "workingCapital", label: "Working-capital adjustment", value: number(deal.workingCapital), sign: 1 },
     { key: "transactionFees", label: "Transaction expenses", value: number(deal.transactionFees), sign: -1 },
-    { key: "bonuses", label: "Change-in-control / carve-out", value: number(deal.bonuses), sign: -1 },
+    { key: "bonuses", label: "Seller-funded management carveout", value: number(deal.bonuses), sign: -1 },
     { key: "transferTaxes", label: "Transfer and entity-level taxes", value: number(deal.transferTaxes), sign: -1 },
     { key: "otherAdjustment", label: "Other purchase-price adjustment", value: number(deal.otherAdjustment), sign: 1 },
   ];

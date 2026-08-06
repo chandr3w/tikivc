@@ -80,6 +80,9 @@ h1 { margin: 0; overflow: hidden; color: var(--ink); font: 500 clamp(18px, 1.8vw
 .kicker, .section-label, .modal-kicker { display: block; color: var(--ink-4); font: 400 10px/1.3 var(--sans); letter-spacing: .05em; text-transform: lowercase; }
 .panel-total { color: var(--g); font: 300 12px/1.2 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .panel-note { margin: -5px 0 15px; color: var(--ink-3); font-size: 12px; line-height: 1.55; }
+.assumption-note { display: grid; gap: 4px; margin: 0 0 14px; padding: 11px 0; border-block: 1px solid var(--border); }
+.assumption-note strong { color: var(--g); font: 400 11px/1.3 var(--sans); }
+.assumption-note span { color: var(--ink-4); font-size: 10px; line-height: 1.5; }
 
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
 .form-grid .wide { grid-column: 1 / -1; }
@@ -174,6 +177,15 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .visual-grid > .viz-panel:first-child .chart { height: 182px; }
 .class-panel { grid-column: 1 / -1; height: 292px; }
 .outcome-panel { width: 100%; height: auto; padding-block: 13px; border-top: 1px solid var(--border); }
+.ownership-panel { padding: 14px 0 13px; border-top: 1px solid var(--border); }
+.ownership-list { border-top: 1px solid var(--border); }
+.ownership-row { min-height: 62px; display: grid; grid-template-columns: minmax(190px, 1.3fr) minmax(130px, .9fr) minmax(170px, 1fr); align-items: center; gap: 16px; border-bottom: 1px solid var(--border); }
+.ownership-row > div:first-child, .ownership-row > div:last-child { min-width: 0; }
+.ownership-row > div:last-child { text-align: right; }
+.ownership-row strong { display: block; overflow: hidden; color: var(--ink-2); font-size: 11px; font-weight: 300; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.ownership-row span { display: block; margin-top: 2px; overflow: hidden; color: var(--ink-4); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.ownership-bar { height: 4px; overflow: hidden; background: var(--ink-5); }
+.ownership-bar span { height: 100%; margin: 0; background: var(--g); }
 .visual-grid > .viz-panel:last-child { grid-column: 1 / -1; }
 .viz-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .viz-heading h3, .table-heading h3 { margin: 2px 0 0; color: var(--ink); font: 400 16px/1.1 var(--disp); font-variation-settings: "opsz" 17; letter-spacing: -.01em; }
@@ -325,6 +337,8 @@ body.hoverable .dot-cur { width: 20px; height: 20px; background: rgba(78,205,137
   .viz-panel, .visual-grid > .viz-panel:first-child { grid-column: auto; height: 236px; }
   .class-panel { height: auto; }
   .class-compare-row { grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 1fr)); gap: 8px; padding: 7px 0; }
+  .ownership-row { grid-template-columns: minmax(0, 1fr) minmax(105px, .7fr); gap: 9px; padding: 9px 0; }
+  .ownership-row .ownership-bar { display: none; }
   .compare-label span { display: none; }
   .viz-panel .chart, .visual-grid > .viz-panel:first-child .chart { height: 176px; }
   .result-header { flex-direction: column; }

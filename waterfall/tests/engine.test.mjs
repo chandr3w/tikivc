@@ -137,7 +137,8 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   const bridge = computeEquityBridge(clean.deal);
   const result = computeWaterfall(clean.stakeholders, bridge.equityValue);
   assert.equal(bridge.equityValue, 100_000_000);
-  assert.equal(result.payouts.founders, 80_000_000);
+  assert.equal(result.payouts.founders, 60_000_000);
+  assert.equal(result.payouts.employees, 20_000_000);
   assert.equal(result.payouts["series-a"], 20_000_000);
   assert.equal(clean.tranches.every((tranche) => tranche.amount === 0), true);
   assert.equal(clean.terms.liquidationPreference, false);
@@ -209,6 +210,12 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(airtable.terms.pariPassu, false);
   assert.equal(airtable.terms.optimalConversion, true);
   assert.equal(airtable.peopleCohorts.length, 8);
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "founders").shares, 12_000_000);
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "employee-common").shares, 9_981_692);
+  assert.equal(airtable.stakeholders.filter((holder) => ["founder", "employee"].includes(holder.category)).reduce((sum, holder) => sum + holder.shares, 0), 21_981_692);
+  assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee").strike, 32.79);
+  assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "growth-employee").strike, 62.64);
+  assert.equal(airtable.peopleCohorts.every((cohort) => cohort.transactionBonus === 0 && cohort.retentionBonus === 0 && cohort.accelerationPercent === 0), true);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-f").seniority, 1);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "seed").seniority, 7);
 }
@@ -225,7 +232,7 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.ok(Math.abs(result.payouts.options - 334_720_000) < 0.01);
   assert.ok(Math.abs(stock - 1_900_000_000) < 0.01);
   assert.ok(Math.abs(cash - 2_560_000_000) < 0.01);
-  assert.deepEqual([...new Set(brex.stakeholders.map((holder) => holder.className))].sort(), ["Common stock", "Options", "RSUs / restricted stock"]);
+  assert.deepEqual([...new Set(brex.stakeholders.map((holder) => holder.className))].sort(), ["Common stock", "Founder common", "Options", "RSUs / restricted stock"]);
 }
 
 {
