@@ -1,0 +1,12 @@
+{
+  "name": "tiki-exit-waterfall",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "Browser-based M&A exit waterfall and consideration simulator",
+  "scripts": {
+    "test": "node tests/engine.test.mjs",
+    "serve": "python3 -m http.server 8770 --bind 127.0.0.1"
+  },
+  "license": "MIT"
+}

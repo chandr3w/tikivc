@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Model enterprise-to-equity value and distribute M&A proceeds across security classes, preferences and consideration tranches.">
+    <meta name="theme-color" content="#0b0c0e">
+    <title>Exit Waterfall — Tiki VC</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#results">Skip to results</a>
+    <header class="site-header">
+      <a class="wordmark" href="https://tiki.vc" aria-label="Tiki VC home">TIKI.VC</a>
+      <span class="header-rule" aria-hidden="true"></span>
+      <span class="product-name">Exit Waterfall</span>
+      <span class="status-chip">Private browser calculation</span>
+    </header>
+
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <p class="overline">M&amp;A proceeds simulator</p>
+        <h1 id="page-title">From headline price to every stakeholder’s outcome.</h1>
+        <p class="lede">Bridge enterprise value to distributable equity, apply contractual priority, and separate cash at close from stock, escrows, notes, earnouts, and rollover.</p>
+      </div>
+      <div class="intro-actions" aria-label="Model actions">
+        <label class="preset-control" for="preset-select">
+          <span>Starting model</span>
+          <select id="preset-select">
+            <option value="clean">Clean acquisition</option>
+            <option value="airbnb">Airbnb sample</option>
+            <option value="venture">Advanced venture sale</option>
+          </select>
+        </label>
+        <button class="button secondary" id="reset-button" type="button">Reset preset</button>
+        <button class="button secondary" id="export-button" type="button">Download JSON</button>
+        <button class="button secondary" id="import-button" type="button">Import JSON</button>
+        <input id="import-file" type="file" accept="application/json" hidden>
+      </div>
+    </section>
+
+    <div class="workspace">
+      <aside class="control-panel" aria-label="Model inputs">
+        <div class="control-heading">
+          <div>
+            <p class="overline">Model inputs</p>
+            <h2>Transaction terms</h2>
+          </div>
+          <p>Enter <strong>125m</strong>, <strong>2.5b</strong>, or an exact amount.</p>
+        </div>
+        <div id="controls"></div>
+      </aside>
+
+      <main id="results" class="results" tabindex="-1">
+        <div id="results-content" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <footer class="site-footer">
+      <p>Illustrative modeling only. This tool does not provide legal, tax, accounting, valuation, or investment advice. Confirm transaction mechanics against the charter, financing documents, equity plan, merger agreement, and closing funds-flow memorandum.</p>
+      <a href="https://tiki.vc">tiki.vc</a>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
