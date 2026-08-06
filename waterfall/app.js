@@ -697,9 +697,12 @@ setInterval(updateClock, 1000);
 if (matchMedia("(prefers-reduced-motion: no-preference)").matches && matchMedia("(pointer: fine)").matches) {
   document.documentElement.classList.add("has-dot");
   const dot = document.querySelector(".dot-cur");
-  addEventListener("pointermove", (event) => { dot.style.transform = `translate3d(${event.clientX}px,${event.clientY}px,0)`; });
-  addEventListener("pointerover", (event) => { if (event.target.closest("a,button,summary,input,select")) document.body.classList.add("hoverable"); });
-  addEventListener("pointerout", () => document.body.classList.remove("hoverable"));
+  const hoverSelector = "a,button,summary,input,select,.field,.check-field,.metric,.bridge-node,.bridge-adjustment,.ownership-row,.class-compare-row,tbody tr";
+  addEventListener("pointermove", (event) => {
+    dot.style.transform = `translate3d(${event.clientX}px,${event.clientY}px,0)`;
+    document.body.classList.toggle("hoverable", Boolean(event.target.closest(hoverSelector)));
+  });
+  addEventListener("pointerleave", () => document.body.classList.remove("hoverable"));
 }
 
 renderAll();
