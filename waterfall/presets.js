@@ -9,6 +9,7 @@ const zeroTranches = () => [
 ];
 
 const cleanHolder = (holder) => ({
+  className: "",
   invested: 0,
   preferenceMultiple: 0,
   secondaryPreferenceMultiple: 0,
@@ -62,8 +63,8 @@ export const PRESETS = {
     },
     tranches: zeroTranches(),
     stakeholders: [
-      cleanHolder({ id: "founders", name: "Founders and employees", securityType: "common", shares: 80_000_000 }),
-      cleanHolder({ id: "investors", name: "Investors", securityType: "common", shares: 20_000_000 }),
+      cleanHolder({ id: "founders", name: "Founders and employees", className: "Common stock", securityType: "common", shares: 80_000_000 }),
+      cleanHolder({ id: "investors", name: "Investors", className: "Common stock", securityType: "common", shares: 20_000_000 }),
     ],
   },
   airtable: {
@@ -100,13 +101,13 @@ export const PRESETS = {
     },
     tranches: zeroTranches(),
     stakeholders: [
-      cleanHolder({ id: "howie", name: "Howie Liu (modeled)", securityType: "common", shares: 10_000_000 }),
-      cleanHolder({ id: "andrew", name: "Andrew Ofstad (modeled)", securityType: "common", shares: 5_000_000 }),
-      cleanHolder({ id: "emmett", name: "Emmett Nicholas (modeled)", securityType: "common", shares: 5_000_000 }),
-      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", securityType: "rsu", shares: 22_000_000 }),
-      cleanHolder({ id: "options", name: "Employee option pool (modeled)", securityType: "option", shares: 8_000_000, strike: 2, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", securityType: "common", shares: 22_000_000 }),
-      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", securityType: "common", shares: 28_000_000 }),
+      cleanHolder({ id: "howie", name: "Howie Liu (modeled)", className: "Common stock", securityType: "common", shares: 10_000_000 }),
+      cleanHolder({ id: "andrew", name: "Andrew Ofstad (modeled)", className: "Common stock", securityType: "common", shares: 5_000_000 }),
+      cleanHolder({ id: "emmett", name: "Emmett Nicholas (modeled)", className: "Common stock", securityType: "common", shares: 5_000_000 }),
+      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", className: "RSUs / restricted stock", securityType: "rsu", shares: 22_000_000 }),
+      cleanHolder({ id: "options", name: "Employee option pool (modeled)", className: "Options", securityType: "option", shares: 8_000_000, strike: 2, escrowEligible: false, deferredEligible: false }),
+      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", className: "Common stock", securityType: "common", shares: 22_000_000 }),
+      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", className: "Common stock", securityType: "common", shares: 28_000_000 }),
     ],
   },
   brex: {
@@ -151,12 +152,12 @@ export const PRESETS = {
       ...zeroTranches().slice(1),
     ],
     stakeholders: [
-      cleanHolder({ id: "henrique", name: "Henrique Dubugras (modeled)", securityType: "common", shares: 12_000_000 }),
-      cleanHolder({ id: "pedro", name: "Pedro Franceschi (modeled)", securityType: "common", shares: 12_000_000 }),
-      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", securityType: "rsu", shares: 20_000_000 }),
-      cleanHolder({ id: "options", name: "Employee option pool (modeled)", securityType: "option", shares: 8_000_000, strike: 3, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", securityType: "common", shares: 22_000_000 }),
-      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", securityType: "common", shares: 26_000_000 }),
+      cleanHolder({ id: "henrique", name: "Henrique Dubugras (modeled)", className: "Common stock", securityType: "common", shares: 12_000_000 }),
+      cleanHolder({ id: "pedro", name: "Pedro Franceschi (modeled)", className: "Common stock", securityType: "common", shares: 12_000_000 }),
+      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", className: "RSUs / restricted stock", securityType: "rsu", shares: 20_000_000 }),
+      cleanHolder({ id: "options", name: "Employee option pool (modeled)", className: "Options", securityType: "option", shares: 8_000_000, strike: 3, escrowEligible: false, deferredEligible: false }),
+      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", className: "Common stock", securityType: "common", shares: 22_000_000 }),
+      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", className: "Common stock", securityType: "common", shares: 26_000_000 }),
     ],
   },
   venture: {
@@ -190,13 +191,13 @@ export const PRESETS = {
       { id: "rollover", label: "Rollover equity", type: "rollover", amount: 4_000_000, treatment: "included", eligibility: "deferred", expectedPercent: 80, years: 4 },
     ],
     stakeholders: [
-      cleanHolder({ id: "founders", name: "Founders", securityType: "common", shares: 30_000_000 }),
-      cleanHolder({ id: "employees", name: "Employee common & RSUs", securityType: "rsu", shares: 5_000_000 }),
-      cleanHolder({ id: "options", name: "Options", securityType: "option", shares: 10_000_000, strike: 0.5, eligiblePercent: 75, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "seed", name: "Seed preferred", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceMultiple: 1, seniority: 3 }),
-      cleanHolder({ id: "series-a", name: "Series A preferred", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceMultiple: 1, seniority: 2, participation: "capped", capMultiple: 3 }),
-      cleanHolder({ id: "series-b1", name: "Series B lead", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceMultiple: 2, seniority: 1, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
-      cleanHolder({ id: "series-b2", name: "Series B syndicate", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceMultiple: 2, seniority: 1 }),
+      cleanHolder({ id: "founders", name: "Founders", className: "Common stock", securityType: "common", shares: 30_000_000 }),
+      cleanHolder({ id: "employees", name: "Employee common & RSUs", className: "Employee equity", securityType: "rsu", shares: 5_000_000 }),
+      cleanHolder({ id: "options", name: "Options", className: "Options", securityType: "option", shares: 10_000_000, strike: 0.5, eligiblePercent: 75, escrowEligible: false, deferredEligible: false }),
+      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceMultiple: 1, seniority: 3 }),
+      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceMultiple: 1, seniority: 2, participation: "capped", capMultiple: 3 }),
+      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceMultiple: 2, seniority: 1, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
+      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceMultiple: 2, seniority: 1 }),
     ],
   },
 };

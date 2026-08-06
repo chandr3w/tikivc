@@ -1,6 +1,6 @@
 # Exit Waterfall
 
-A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an EV bridge waterfall chart, proceeds-ownership donut, and exit-sensitivity curve; methods and sources live in focused dialogs.
+A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an explicit EV-to-equity equation, a share-class proceeds chart, and an exit-sensitivity curve. Methods and sources live in focused dialogs.
 
 The default Airtable model is a clean $8.0 billion cash acquisition. Airtable's disclosed funding history anchors the case; the purchase price, cash balance, cap table, option pool and strike price are labeled as model inputs. A separate Brex preset uses Capital One's completed April 2026 acquisition terms with an approximate holder split. The advanced preset demonstrates a complex venture-backed sale.
 

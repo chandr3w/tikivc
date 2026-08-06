@@ -122,6 +122,7 @@ function renderStakeholderEditor(holder, index) {
       <summary class="editor-summary"><span class="editor-summary-main"><strong>${escapeHtml(holder.name)}</strong><span>${escapeHtml(labelForSecurity(holder.securityType))} · ${formatShares(holder.shares)}</span></span></summary>
       <div class="editor-body"><div class="form-grid">
         ${indexedField(index, "stakeholder", "name", "Stakeholder / class", holder.name, "text", true)}
+        ${indexedField(index, "stakeholder", "className", "Share class / pool", holder.className || inferredClassName(holder), "text")}
         ${selectField(index, "stakeholder", "securityType", "Security", holder.securityType, [["common","Common stock"],["preferred","Preferred stock"],["safe","SAFE"],["note","Convertible note"],["rsu","RSU / restricted stock"],["option","Option"],["warrant","Warrant"]])}
         ${indexedField(index, "stakeholder", "shares", "As-converted shares", holder.shares, "shares")}
         ${indexedField(index, "stakeholder", "eligiblePercent", "Vested / eligible", holder.eligiblePercent, "percent")}
@@ -188,7 +189,7 @@ function renderResults() {
     </section>
     <div class="visual-grid">
       ${renderBridgeChart(bridge, incremental, grossProceeds)}
-      ${renderAllocationDonut(rows, grossProceeds)}
+      ${renderClassProceeds(rows, waterfall, grossProceeds)}
       ${renderSensitivityChart()}
     </div>
     ${renderPayoutTable(rows, waterfall, grossProceeds)}
@@ -197,56 +198,43 @@ function renderResults() {
 
 function renderBridgeChart(bridge, incremental, grossProceeds) {
   const deal = state.deal;
-  const entries = [
-    { label: "EV", total: number(deal.enterpriseValue) },
-    { label: "cash", delta: number(deal.cash) },
-    { label: "debt", delta: -(number(deal.debt) + number(deal.debtLike)) },
-    { label: "WC", delta: number(deal.workingCapital) },
-    { label: "costs", delta: -(number(deal.transactionFees) + number(deal.bonuses) + number(deal.transferTaxes)) },
-    { label: "other", delta: number(deal.otherAdjustment) },
-    { label: "equity", total: bridge.equityValue, final: incremental <= 0 },
-  ];
-  if (incremental > 0) entries.push({ label: "contingent", delta: incremental }, { label: "gross", total: grossProceeds, final: true });
-  const maxValue = Math.max(1, ...entries.map((entry) => Math.abs(entry.total ?? entry.delta ?? 0)), grossProceeds, number(deal.enterpriseValue));
-  const bottom = 157;
-  const chartHeight = 122;
-  const scale = chartHeight / maxValue;
-  const gap = 720 / entries.length;
-  const width = Math.min(46, gap * .56);
-  let running = 0;
-  const bars = entries.map((entry, index) => {
-    const x = gap * index + gap / 2 - width / 2;
-    const start = entry.total !== undefined ? 0 : running;
-    const end = entry.total !== undefined ? entry.total : Math.max(0, running + entry.delta);
-    if (entry.total !== undefined) running = entry.total; else running = end;
-    const topValue = Math.max(start, end);
-    const lowValue = Math.min(start, end);
-    const height = Math.max(2, (topValue - lowValue) * scale);
-    const y = bottom - topValue * scale;
-    const className = entry.final ? "mint" : entry.total !== undefined ? "platinum" : "ghost";
-    const value = entry.total !== undefined ? entry.total : entry.delta;
-    const connector = index < entries.length - 1 ? `<line class="gridline" x1="${x + width}" y1="${bottom - running * scale}" x2="${gap * (index + 1) + gap / 2 - width / 2}" y2="${bottom - running * scale}"/>` : "";
-    return `${connector}<rect class="${className}" x="${x}" y="${y}" width="${width}" height="${height}" opacity="${entry.final ? 1 : .68}" rx="2"><title>${escapeHtml(entry.label)}: ${formatMoney(value)}</title></rect><text class="value" x="${x + width / 2}" y="${Math.max(10, y - 6)}" text-anchor="middle">${escapeHtml(formatMoney(value))}</text><text class="label" x="${x + width / 2}" y="176" text-anchor="middle">${escapeHtml(entry.label)}</text>`;
-  }).join("");
-  return `<section class="viz-panel" aria-labelledby="bridge-chart-title"><div class="viz-heading"><div><span class="section-label">value bridge</span><h3 id="bridge-chart-title">From EV to proceeds</h3></div><p>${formatMoney(grossProceeds)} distributable</p></div><svg class="chart" viewBox="0 0 720 190" role="img" aria-label="Waterfall chart from enterprise value to gross proceeds"><line class="axis" x1="10" y1="157" x2="710" y2="157"/>${bars}</svg></section>`;
+  const adjustments = [
+    { label: "Cash and investments", value: number(deal.cash) },
+    { label: "Debt and debt-like items", value: -(number(deal.debt) + number(deal.debtLike)) },
+    { label: "Working capital", value: number(deal.workingCapital) },
+    { label: "Fees, bonuses and taxes", value: -(number(deal.transactionFees) + number(deal.bonuses) + number(deal.transferTaxes)) },
+    { label: "Other adjustment", value: number(deal.otherAdjustment) },
+  ].filter((item) => Math.abs(item.value) >= .01);
+  const netAdjustment = adjustments.reduce((sum, item) => sum + item.value, 0);
+  const netOperator = netAdjustment < 0 ? "−" : "+";
+  const netDisplay = formatMoney(Math.abs(netAdjustment));
+  const adjustmentRows = adjustments.length
+    ? adjustments.map((item) => `<div class="bridge-adjustment"><span>${escapeHtml(item.label)}</span><strong class="${item.value < 0 ? "negative" : "positive"}">${escapeHtml(formatSignedMoney(item.value))}</strong></div>`).join("")
+    : `<div class="bridge-adjustment empty"><span>No bridge adjustments</span><strong>$0</strong></div>`;
+  const aria = `Enterprise value ${formatMoney(deal.enterpriseValue)}, net adjustments ${formatSignedMoney(netAdjustment)}, equity value ${formatMoney(bridge.equityValue)}${incremental > 0 ? `, plus ${formatMoney(incremental)} incremental consideration, gross waterfall value ${formatMoney(grossProceeds)}` : ""}.`;
+  const contingent = incremental > 0 ? `<div class="contingent-strip"><span>Equity value <strong>${formatMoney(bridge.equityValue)}</strong></span><span class="equation-sign">+</span><span>Incremental consideration <strong>${formatMoney(incremental)}</strong></span><span class="equation-sign">=</span><span>Gross waterfall value <strong>${formatMoney(grossProceeds)}</strong></span></div>` : "";
+  return `<section class="viz-panel bridge-panel" aria-labelledby="bridge-chart-title"><div class="viz-heading"><div><span class="section-label">purchase price bridge</span><h3 id="bridge-chart-title">Enterprise value to equity value</h3></div><p>EV + cash − debt ± adjustments</p></div><div class="bridge-equation" role="img" aria-label="${escapeAttribute(aria)}"><div class="bridge-node"><span>enterprise value</span><strong>${formatMoney(deal.enterpriseValue)}</strong></div><div class="bridge-operator" aria-hidden="true">${netOperator}</div><div class="bridge-adjustments"><header><span>net adjustments</span><strong class="${netAdjustment < 0 ? "negative" : "positive"}">${netDisplay}</strong></header>${adjustmentRows}</div><div class="bridge-operator" aria-hidden="true">=</div><div class="bridge-node final"><span>equity value</span><strong>${formatMoney(bridge.equityValue)}</strong></div></div>${contingent}</section>`;
 }
 
-function renderAllocationDonut(rows, total) {
-  const maxSegments = 5;
-  const shown = rows.slice(0, maxSegments).map((row) => ({ name: row.holder.name, amount: row.timing.entitlement }));
-  if (rows.length > maxSegments) shown.push({ name: "Other holders", amount: rows.slice(maxSegments).reduce((sum, row) => sum + row.timing.entitlement, 0) });
-  const colors = ["#4ecd89", "#d5d9e2", "rgba(78,205,137,.62)", "rgba(213,217,226,.58)", "rgba(78,205,137,.34)", "rgba(213,217,226,.28)"];
-  const circumference = 301.593;
-  let offset = 0;
-  const segments = shown.map((item, index) => {
-    const ratio = total > 0 ? item.amount / total : 0;
-    const length = ratio * circumference;
-    const circle = `<circle cx="66" cy="66" r="48" stroke="${colors[index]}" stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}"><title>${escapeHtml(item.name)}: ${formatMoney(item.amount)} (${formatPercent(ratio)})</title></circle>`;
-    offset += length;
-    return circle;
+function renderClassProceeds(rows, waterfall, total) {
+  const groups = new Map();
+  rows.forEach((row) => {
+    const className = row.holder.className?.trim() || inferredClassName(row.holder);
+    const current = groups.get(className) || { name: className, shares: 0, gross: 0, preference: 0, securityTypes: new Set() };
+    current.shares += number(row.holder.shares) * Math.max(0, Math.min(100, number(row.holder.eligiblePercent))) / 100;
+    current.gross += number(row.timing.entitlement);
+    current.preference += number(waterfall.preferencePaid[row.holder.id]);
+    current.securityTypes.add(labelForSecurity(row.holder.securityType));
+    groups.set(className, current);
+  });
+  const classes = [...groups.values()].sort((a, b) => b.gross - a.gross);
+  const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
+  const stacked = classes.map((item, index) => `<span class="class-segment ${colors[index % colors.length]}" style="width:${total > 0 ? Math.max(0, item.gross / total * 100) : 0}%"><span class="sr-only">${escapeHtml(item.name)} ${escapeHtml(formatPercent(total > 0 ? item.gross / total : 0))}</span></span>`).join("");
+  const rowsHtml = classes.map((item, index) => {
+    const share = total > 0 ? item.gross / total : 0;
+    return `<div class="class-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml([...item.securityTypes].join(" + "))} · ${escapeHtml(formatShares(item.shares))}</small></span></div><div class="class-value"><strong>${formatMoney(item.gross)}</strong><small>${formatPercent(share)}${item.preference > 0 ? ` · ${formatMoney(item.preference)} preference` : ""}</small></div></div>`;
   }).join("");
-  const legend = shown.map((item, index) => `<div class="legend-row"><span class="legend-dot" style="background:${colors[index]}"></span><span>${escapeHtml(item.name)}</span><strong>${formatPercent(total > 0 ? item.amount / total : 0)}</strong></div>`).join("");
-  return `<section class="viz-panel" aria-labelledby="allocation-chart-title"><div class="viz-heading"><div><span class="section-label">holder outcomes</span><h3 id="allocation-chart-title">Proceeds ownership</h3></div><p>gross entitlement</p></div><div class="donut-layout"><svg class="donut" viewBox="0 0 132 132" role="img" aria-label="Donut chart of proceeds by stakeholder"><circle cx="66" cy="66" r="48" stroke="rgba(255,255,255,.08)"/>${segments}<text class="donut-total" x="66" y="64">${escapeHtml(formatMoney(total))}</text><text class="donut-caption" x="66" y="77">total</text></svg><div class="chart-legend">${legend}</div></div></section>`;
+  return `<section class="viz-panel class-panel" aria-labelledby="class-chart-title"><div class="viz-heading"><div><span class="section-label">class outcomes</span><h3 id="class-chart-title">Exit proceeds by share class</h3></div><p>gross distribution</p></div><div class="class-stack" role="img" aria-label="Gross proceeds allocated across ${classes.length} share classes">${stacked}</div><div class="class-breakdown">${rowsHtml || `<p class="empty-state">Add a security class to calculate proceeds.</p>`}</div></section>`;
 }
 
 function sensitivityData() {
@@ -275,13 +263,16 @@ function renderSensitivityChart() {
 
 function renderPayoutTable(rows, waterfall, total) {
   const preferenceTotal = Object.values(waterfall.preferencePaid).reduce((sum, value) => sum + value, 0);
-  return `<section class="payout-section" aria-labelledby="payout-title"><div class="table-heading"><div><span class="section-label">security waterfall</span><h3 id="payout-title">Stakeholder proceeds</h3></div><p>${formatMoney(preferenceTotal)} preference paid · ${formatMoney(waterfall.pricePerShare)} common / share</p></div><div class="table-wrap"><table><thead><tr><th>stakeholder</th><th>security / election</th><th>preference</th><th>gross payout</th><th>cash at close</th><th>other / deferred</th><th>share</th></tr></thead><tbody>${rows.map((row) => {
+  return `<section class="payout-section" aria-labelledby="payout-title"><div class="table-heading"><div><span class="section-label">holder detail</span><h3 id="payout-title">Stakeholder proceeds</h3></div><p>${formatMoney(preferenceTotal)} preference paid · ${formatMoney(waterfall.pricePerShare)} common / share</p></div><div class="table-wrap"><table><thead><tr><th>stakeholder</th><th>share class / security</th><th>preference</th><th>gross payout</th><th>cash at close</th><th>other / deferred</th><th>share</th></tr></thead><tbody>${rows.map((row) => {
     const holder = row.holder;
     const preferenceSecurity = ["preferred","safe","note"].includes(holder.securityType);
     const multiplier = preferenceSecurity ? ratchetMultiplier(holder) : 1;
     const share = total > 0 ? row.timing.entitlement / total : 0;
     const detail = preferenceSecurity ? `${waterfall.choiceById[holder.id]} · tier ${holder.seniority}${multiplier > 1.0001 ? ` · ${multiplier.toFixed(3)}× ratchet` : ""}` : ["option","warrant"].includes(holder.securityType) ? `${formatMoney(holder.strike)} strike` : "as-converted";
-    return `<tr><td><strong>${escapeHtml(holder.name)}</strong><span class="subtext">${formatShares(holder.shares)} · ${Number(holder.eligiblePercent || 0).toFixed(0)}% eligible</span></td><td>${escapeHtml(labelForSecurity(holder.securityType))}<span class="subtext">${escapeHtml(detail)}</span></td><td class="money">${formatMoney(waterfall.preferencePaid[holder.id] || 0)}</td><td class="money">${formatMoney(row.timing.entitlement)}</td><td class="money">${formatMoney(row.timing.closingCash)}</td><td class="money">${formatMoney(row.deferred)}</td><td class="money">${formatPercent(share)}<div class="allocation-meter" aria-hidden="true"><span style="width:${Math.min(100, share * 100)}%"></span></div></td></tr>`;
+    const className = holder.className?.trim() || inferredClassName(holder);
+    const securityLabel = labelForSecurity(holder.securityType);
+    const classDetail = className === securityLabel ? detail : `${securityLabel} · ${detail}`;
+    return `<tr><td><strong>${escapeHtml(holder.name)}</strong><span class="subtext">${formatShares(holder.shares)} · ${Number(holder.eligiblePercent || 0).toFixed(0)}% eligible</span></td><td><strong>${escapeHtml(className)}</strong><span class="subtext">${escapeHtml(classDetail)}</span></td><td class="money">${formatMoney(waterfall.preferencePaid[holder.id] || 0)}</td><td class="money">${formatMoney(row.timing.entitlement)}</td><td class="money">${formatMoney(row.timing.closingCash)}</td><td class="money">${formatMoney(row.deferred)}</td><td class="money">${formatPercent(share)}<div class="allocation-meter" aria-hidden="true"><span style="width:${Math.min(100, share * 100)}%"></span></div></td></tr>`;
   }).join("")}</tbody><tfoot><tr><td>total</td><td></td><td>${formatMoney(preferenceTotal)}</td><td>${formatMoney(total)}</td><td>${formatMoney(rows.reduce((sum,row)=>sum+row.timing.closingCash,0))}</td><td>${formatMoney(rows.reduce((sum,row)=>sum+row.deferred,0))}</td><td>100.00%</td></tr></tfoot></table></div></section>`;
 }
 
@@ -291,6 +282,7 @@ function renderDialogs() {
   const tiers = [...new Set(activePrefs.map((holder) => number(holder.seniority)))].sort((a,b)=>a-b);
   methodsContent.innerHTML = `<div class="explainers">
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
+    ${explainer("Share-class view", "Each stakeholder row maps to a share class or pool. The class chart combines gross payout, eligible shares and preference paid across rows with the same class name. The stakeholder table preserves holder-level detail.")}
     ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. Tier 1 pays first; claims sharing a tier split an underfunded pool pro rata by claim amount.` : "No liquidation preference claim is active. Eligible common equivalents share residual value.")}
     ${explainer("Conversion elections", waterfall.stableElection ? "The solver evaluates up to 4,096 preference and conversion combinations for 12 elective classes. A class takes preference when conversion would not improve its payout with the other elections held fixed." : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
     ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple. A class may split claims across two priority tiers.")}
@@ -448,6 +440,12 @@ function formatMoney(value) {
   return `${sign}$${Math.round(abs).toLocaleString()}`;
 }
 
+function formatSignedMoney(value) {
+  const amount = number(value);
+  if (Math.abs(amount) < .01) return "$0";
+  return `${amount > 0 ? "+" : "−"}${formatMoney(Math.abs(amount))}`;
+}
+
 function formatShares(value) {
   const amount = number(value);
   if (Math.abs(amount) >= 1e9) return `${trimZeros(amount / 1e9, 2)}B shares`;
@@ -459,6 +457,7 @@ function formatShares(value) {
 function formatPercent(value) { return `${(number(value) * 100).toFixed(2)}%`; }
 function trimZeros(value, digits = 4) { return number(value).toFixed(digits).replace(/\.?0+$/, ""); }
 function labelForSecurity(value) { return { common:"Common stock", preferred:"Preferred stock", safe:"SAFE", note:"Convertible note", rsu:"RSU / restricted stock", option:"Option", warrant:"Warrant" }[value] || value; }
+function inferredClassName(holder) { return { common:"Common stock", preferred:"Preferred stock", safe:"SAFE", note:"Convertible notes", rsu:"RSUs / restricted stock", option:"Options", warrant:"Warrants" }[holder?.securityType] || "Other securities"; }
 function labelForType(value) { return { stock:"Buyer stock", escrow:"Escrow / holdback", note:"Seller note", earnout:"Earnout", rollover:"Rollover equity", other:"Other" }[value] || value; }
 function slugify(value) { return String(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "exit-waterfall"; }
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[character])); }

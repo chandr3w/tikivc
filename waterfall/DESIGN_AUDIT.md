@@ -38,3 +38,15 @@ Post-redesign score: **20/20**
 - At laptop width, the EV bridge spans the results pane while ownership and sensitivity charts share a second row. At narrower widths, all charts stack at full width.
 - Airtable is the default case, Brex is separate, and modeled inputs are stated in the interface and source dialog.
 - The solver exhaustively optimizes up to 12 elective preference classes, or 4,096 combinations. Larger models require forced elections based on counsel-reviewed terms.
+
+## Result-clarity audit
+
+Independent score before changes: **18/20**
+
+| Severity | Finding | Evidence | Resolution |
+|---|---|---|---|
+| P1 | The allocation donut duplicated the holder table and omitted share-class outcomes. | `renderAllocationDonut` grouped the five largest stakeholder rows rather than security classes. | Replaced it with a class-level proceeds view showing gross payout, percentage, eligible shares and preference paid. |
+| P1 | The EV bridge obscured a simple equation with zero-value bars. | The Airtable chart rendered debt, working capital, costs and other adjustments at $0. | Replaced the chart with an explicit EV, net-adjustment and equity-value equation. Zero-value rows are omitted. |
+| P2 | Stakeholder detail did not expose the class used for aggregation. | The table showed only security type and election. | Added an editable share-class field and a share-class column in the holder table. |
+
+Post-change score: **20/20**. The interface separates class economics from holder ownership, keeps the full calculation accessible to screen readers, and preserves the Atas app-mode hierarchy.

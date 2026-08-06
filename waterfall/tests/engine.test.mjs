@@ -154,6 +154,7 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.ok(Math.abs(result.payouts.options - 625_280_000) < 0.01);
   assert.equal(stock, 0);
   assert.ok(Math.abs(cash - 8_000_000_000) < 0.01);
+  assert.deepEqual([...new Set(airtable.stakeholders.map((holder) => holder.className))].sort(), ["Common stock", "Options", "RSUs / restricted stock"]);
 }
 
 {
@@ -168,6 +169,7 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.ok(Math.abs(result.payouts.options - 334_720_000) < 0.01);
   assert.ok(Math.abs(stock - 1_900_000_000) < 0.01);
   assert.ok(Math.abs(cash - 2_560_000_000) < 0.01);
+  assert.deepEqual([...new Set(brex.stakeholders.map((holder) => holder.className))].sort(), ["Common stock", "Options", "RSUs / restricted stock"]);
 }
 
 {
