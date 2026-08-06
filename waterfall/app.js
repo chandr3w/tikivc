@@ -316,13 +316,28 @@ function buildWarnings(bridge, waterfall, consideration) {
 }
 
 function inputField({ label, value, inputType, scope, field, wide = false }) {
+  if (inputType === "percent") return rangeField({ label, value, scope, field, wide, min: 0, max: field === "discountRate" ? 30 : 100, step: field === "discountRate" ? .5 : 1 });
   const display = ["money","shares"].includes(inputType) ? compactInput(value) : String(value ?? "");
   return `<label class="field ${wide ? "wide" : ""}"><span>${escapeHtml(label)}</span><input type="text" inputmode="${inputType === "text" ? "text" : "decimal"}" value="${escapeAttribute(display)}" data-scope="${scope}" data-field="${field}" data-value-type="${inputType}"></label>`;
 }
 
 function indexedField(index, scope, field, label, value, inputType, wide = false) {
+  if (inputType === "percent") return rangeField({ label, value, scope, field, index, wide, min: 0, max: 100, step: 1 });
   const display = ["money","shares"].includes(inputType) ? compactInput(value) : String(value ?? "");
   return `<label class="field ${wide ? "wide" : ""}"><span>${escapeHtml(label)}</span><input type="text" inputmode="${inputType === "text" ? "text" : "decimal"}" value="${escapeAttribute(display)}" data-scope="${scope}" data-index="${index}" data-field="${field}" data-value-type="${inputType}"></label>`;
+}
+
+function rangeField({ label, value, scope, field, index, wide = false, min = 0, max = 100, step = 1 }) {
+  const numericValue = Math.min(max, Math.max(min, number(value)));
+  const progress = max === min ? 0 : ((numericValue - min) / (max - min)) * 100;
+  const indexData = Number.isInteger(index) ? ` data-index="${index}"` : "";
+  const outputId = `range-${scope}-${Number.isInteger(index) ? `${index}-` : ""}${field}`;
+  return `<div class="field range-field ${wide ? "wide" : ""}"><div class="range-heading"><label for="${outputId}">${escapeHtml(label)}</label><output data-range-output="${outputId}">${escapeHtml(formatRangePercent(numericValue))}</output></div><input id="${outputId}" type="range" min="${min}" max="${max}" step="${step}" value="${numericValue}" aria-label="${escapeAttribute(label)}" data-scope="${scope}"${indexData} data-field="${field}" data-value-type="percent" data-range-output-id="${outputId}" style="--range-progress:${progress}%"></div>`;
+}
+
+function formatRangePercent(value) {
+  const digits = Number.isInteger(value) ? 0 : 1;
+  return `${value.toFixed(digits)}%`;
 }
 
 function selectField(index, scope, field, label, value, options) {
@@ -355,6 +370,14 @@ function updateStateFromControl(target) {
 
 controls.addEventListener("input", (event) => {
   if (event.target.matches("select, input[type='checkbox']")) return;
+  if (event.target.matches("input[type='range']")) {
+    const min = number(event.target.min);
+    const max = number(event.target.max);
+    const value = number(event.target.value);
+    const progress = max === min ? 0 : ((value - min) / (max - min)) * 100;
+    event.target.style.setProperty("--range-progress", `${progress}%`);
+    controls.querySelector(`[data-range-output="${event.target.dataset.rangeOutputId}"]`)?.replaceChildren(formatRangePercent(value));
+  }
   updateStateFromControl(event.target);
 });
 
