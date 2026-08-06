@@ -1,6 +1,6 @@
 # Exit Waterfall
 
-A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers.
+A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an EV bridge waterfall chart, proceeds-ownership donut, and exit-sensitivity curve; methods and sources live in focused dialogs.
 
 The default model is intentionally clean: a $100 million cash acquisition, no adjustments, no preferences, and an 80/20 common ownership split. The Airbnb preset combines public capitalization and balance-sheet data with clearly labeled hypothetical deal terms. The advanced preset demonstrates a complex venture-backed sale.
 
@@ -29,7 +29,7 @@ Open `http://127.0.0.1:8770`. The app has no runtime dependencies, sends no mode
 
 ## Airbnb preset
 
-Public facts are based on Airbnb’s Q1 2026 Form 10-Q and 2026 proxy. The preset excludes company-owned Class H shares and separates disclosed options and RSUs from voting shares. The transaction price, premium, fees, bonuses, consideration mix, and escrow are hypothetical and editable; the interface displays every source and assumption alongside the model.
+Public facts are based on Airbnb’s Q1 2026 Form 10-Q and 2026 proxy. The preset excludes company-owned Class H shares and separates disclosed options and RSUs from voting shares. It models an illustrative $190 per-share acquisition with $120.74 billion of fully diluted equity value and a 75% cash / 25% buyer-stock mix. The offer price, premium, and consideration mix are hypothetical and editable; every source and assumption appears in the sources dialog.
 
 ## Research basis
 

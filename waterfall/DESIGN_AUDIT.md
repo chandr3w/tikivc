@@ -28,9 +28,9 @@ Post-redesign score: **19/20 — production-ready with one bounded limitation**
 | Accessibility | 4/4 | Semantic labels and tables, a skip link, visible focus rings, 44px controls, non-color legend labels, readable type, and reduced-motion support. |
 | Performance | 4/4 | No framework, CDN, font, or build-time dependency; the browser loads static HTML, CSS, and ES modules only. |
 | Responsive behavior | 4/4 | Two-pane desktop workspace becomes a single-column model at tablet widths; forms, metrics, and actions reflow at mobile widths while wide tables remain scrollable. |
-| Theming and system coherence | 3/4 | A compact token system controls color, spacing, borders, focus, and status feedback. It intentionally ships as a light financial workstation rather than a dual-theme product. |
-| Design-pattern discipline | 4/4 | The hierarchy follows the financial job: bridge, consideration, securities, reconciled output, sensitivity, methodology, and sources. Decoration is subordinate to data. |
+| Theming and system coherence | 4/4 | The Atas app-mode system uses self-hosted Bricolage Grotesque, Inter, and JetBrains Mono; a near-black layered canvas; mint-only chroma; official Atas marks; mono corner chrome; and consistent interaction tokens. |
+| Design-pattern discipline | 3/4 | The one-screen workspace uses input tabs, compact financial visualizations, and a single holder table. Methods, mechanics, sources, and disclosures move into focused dialogs instead of lengthening the modeling surface. |
 
 ### Remaining limitation
 
-The browser solver exhaustively optimizes up to 12 elective preference classes (4,096 election combinations). Larger models remain supported, but classes beyond that limit should be forced to preference or conversion based on counsel-reviewed terms.
+The browser solver exhaustively optimizes up to 12 elective preference classes (4,096 election combinations). Larger models remain supported, but classes beyond that limit should be forced to preference or conversion based on counsel-reviewed terms. On narrow screens the workspace becomes a deliberate vertical flow rather than attempting to preserve the full desktop dashboard in one viewport.
