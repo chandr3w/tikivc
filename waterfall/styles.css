@@ -86,13 +86,17 @@ h1 { margin: 0; overflow: hidden; color: var(--ink); font: 500 clamp(18px, 1.8vw
 .field { min-width: 0; display: grid; gap: 5px; color: var(--ink-3); font: 300 11px/1.25 var(--sans); }
 .field > span:first-child { min-height: 14px; }
 .field-hint { display: none; }
-select, input[type="text"] { width: 100%; min-height: 44px; padding: 9px 10px; border: 1px solid var(--border-strong); border-radius: 2px; outline: 0; color: var(--ink); background-color: #0d0d10; font-size: 13px; font-weight: 300; font-variant-numeric: tabular-nums; transition: border-color .2s var(--ease), background-color .2s var(--ease); }
-select { appearance: none; padding-right: 34px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%237f8288' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; }
-select:hover, input[type="text"]:hover { border-color: var(--ink-4); background-color: var(--panel-el); }
-select:focus, input[type="text"]:focus { border-color: var(--g); }
+select, input[type="text"] { width: 100%; min-height: 44px; padding: 9px 10px; border: 1px solid var(--border-strong); border-radius: 2px; outline: 0; color: var(--ink); background-color: #0d0d10; font-size: 13px; font-weight: 300; font-variant-numeric: tabular-nums; transition: border-color .2s var(--ease), background-color .2s var(--ease), box-shadow .2s var(--ease); }
+select { appearance: none; color-scheme: dark; padding-right: 36px; border-radius: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%23d5d9e2' stroke-opacity='.62' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+select:not(:disabled):hover { color: var(--ink); border-color: var(--g-dim); background-color: var(--panel-el); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%234ecd89' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); }
+input[type="text"]:hover { border-color: var(--ink-4); background-color: var(--panel-el); }
+select:focus, select:open, input[type="text"]:focus { border-color: var(--g); box-shadow: 0 0 0 1px var(--g-dim), 0 0 20px rgba(78,205,137,.08); }
+select:focus, select:open { background-color: var(--panel-el); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 6 4-4 4 4' fill='none' stroke='%234ecd89' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); }
 select:disabled, input[type="text"]:disabled { cursor: not-allowed; opacity: .46; }
 select:invalid, input[type="text"]:invalid { border-color: var(--error); }
-select option { color: var(--ink); background: var(--panel-el); }
+select option, select optgroup { color: var(--ink-2); background-color: var(--panel-el); font-family: var(--sans); font-size: 13px; font-weight: 300; }
+select option:checked { color: var(--bg); background: linear-gradient(var(--g), var(--g)); }
+select option:disabled { color: var(--ink-4); }
 input:-webkit-autofill { -webkit-text-fill-color: var(--ink); box-shadow: 0 0 0 1000px #0d0d10 inset; }
 
 .range-field { gap: 3px; }
