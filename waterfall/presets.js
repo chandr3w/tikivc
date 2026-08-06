@@ -10,6 +10,13 @@ const zeroTranches = () => [
 
 const cleanHolder = (holder) => ({
   className: "",
+  useSharedTerms: true,
+  preferenceEnabled: false,
+  optimalConversion: true,
+  participatingPreferred: false,
+  cappedParticipation: false,
+  cumulativeDividends: false,
+  antiDilution: false,
   invested: 0,
   preferenceMultiple: 0,
   secondaryPreferenceMultiple: 0,
@@ -39,6 +46,33 @@ const cleanHolder = (holder) => ({
   ...holder,
 });
 
+const sharedTerms = (overrides = {}) => ({
+  liquidationPreference: false,
+  pariPassu: false,
+  preferenceMultiple: 1,
+  optimalConversion: true,
+  participatingPreferred: false,
+  cappedParticipation: false,
+  participationCap: 3,
+  cumulativeDividends: false,
+  dividendType: "simple",
+  accruedDividend: 0,
+  dividendRate: 8,
+  dividendYears: 0,
+  dividendPeriods: 1,
+  paidDividends: 0,
+  antiDilution: false,
+  ratchetType: "weighted-average",
+  originalPrice: 0,
+  downRoundPrice: 0,
+  preRoundShares: 0,
+  newMoney: 0,
+  conversionMultiplier: 1,
+  escrowEligibleAll: true,
+  deferredEligibleAll: true,
+  ...overrides,
+});
+
 export const PRESETS = {
   clean: {
     meta: {
@@ -61,6 +95,7 @@ export const PRESETS = {
       otherAdjustment: 0,
       discountRate: 12,
     },
+    terms: sharedTerms(),
     tranches: zeroTranches(),
     stakeholders: [
       cleanHolder({ id: "founders", name: "Founders and employees", className: "Common stock", securityType: "common", shares: 80_000_000 }),
@@ -134,6 +169,7 @@ export const PRESETS = {
       otherAdjustment: 0,
       discountRate: 12,
     },
+    terms: sharedTerms(),
     tranches: zeroTranches(),
     stakeholders: [
       cleanHolder({ id: "common", name: "Founders, employees and common holders (modeled)", className: "Common holders", securityType: "common", shares: 21_981_692, displayOrder: 0 }),
@@ -183,6 +219,7 @@ export const PRESETS = {
       otherAdjustment: 0,
       discountRate: 12,
     },
+    terms: sharedTerms(),
     tranches: [
       { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_900_000_000, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
       ...zeroTranches().slice(1),
@@ -217,6 +254,19 @@ export const PRESETS = {
       otherAdjustment: 0,
       discountRate: 15,
     },
+    terms: sharedTerms({
+      liquidationPreference: true,
+      preferenceMultiple: 1,
+      participatingPreferred: true,
+      cappedParticipation: true,
+      participationCap: 3,
+      antiDilution: true,
+      ratchetType: "weighted-average",
+      originalPrice: 2,
+      downRoundPrice: 1.25,
+      preRoundShares: 70_000_000,
+      newMoney: 10_000_000,
+    }),
     tranches: [
       { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 10_000_000, treatment: "included", eligibility: "all", expectedPercent: 95, years: 0 },
       { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 650_000, treatment: "included", eligibility: "escrow", expectedPercent: 98, years: 0.25 },

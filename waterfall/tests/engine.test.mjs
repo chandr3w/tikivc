@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { allocateConsideration, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
+import { allocateConsideration, applySharedTerms, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
 import { clonePreset } from "../presets.js";
 
 const common = (id, shares) => ({ id, name: id, securityType: "common", shares, eligiblePercent: 100 });
@@ -140,6 +140,46 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(result.payouts.founders, 80_000_000);
   assert.equal(result.payouts.investors, 20_000_000);
   assert.equal(clean.tranches.every((tranche) => tranche.amount === 0), true);
+  assert.equal(clean.terms.liquidationPreference, false);
+  assert.equal(clean.terms.pariPassu, false);
+  assert.equal(clean.terms.optimalConversion, true);
+}
+
+{
+  const holders = [
+    { ...preferred("series-a", 20, 20, 2), displayOrder: 1, useSharedTerms: true },
+    { ...preferred("series-b", 20, 20, 1), displayOrder: 2, useSharedTerms: true },
+  ];
+  const cleanTerms = applySharedTerms(holders, {
+    liquidationPreference: false,
+    pariPassu: false,
+    escrowEligibleAll: true,
+    deferredEligibleAll: true,
+  });
+  assert.equal(cleanTerms.every((holder) => holder.preferenceMultiple === 0 && holder.conversionPolicy === "force-convert"), true);
+
+  const pariTerms = applySharedTerms(holders, {
+    liquidationPreference: true,
+    preferenceMultiple: 1,
+    pariPassu: true,
+    optimalConversion: true,
+    escrowEligibleAll: true,
+    deferredEligibleAll: true,
+  });
+  assert.equal(pariTerms.every((holder) => holder.seniority === 1), true);
+  assert.equal(pariTerms.every((holder) => holder.conversionPolicy === "elective"), true);
+
+  holders[0].useSharedTerms = false;
+  holders[0].preferenceEnabled = false;
+  const mixedTerms = applySharedTerms(holders, {
+    liquidationPreference: true,
+    preferenceMultiple: 2,
+    pariPassu: true,
+    escrowEligibleAll: true,
+    deferredEligibleAll: true,
+  });
+  assert.equal(mixedTerms[0].preferenceMultiple, 0);
+  assert.equal(mixedTerms[1].preferenceMultiple, 2);
 }
 
 {

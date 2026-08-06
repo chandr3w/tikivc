@@ -1,12 +1,13 @@
 # Exit Waterfall
 
-A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an explicit EV-to-equity equation, a share-class proceeds chart, and an exit-sensitivity curve. Methods and sources live in focused dialogs.
+A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an explicit EV-to-equity equation, paired initial-investment-versus-exit-value bars, and an exit-sensitivity curve. Methods and sources live in focused dialogs.
 
 The default Airtable model uses Bending Spoons' announced August 2026 all-cash acquisition: a reported $1.285 billion purchase price and $2.25 billion implied equity value including Airtable cash. A corporate-filings-based 2024 cap-table snapshot separates common and Seed through Series F cohorts, with each preferred series modeled as converted common and liquidation preferences set to zero. A separate Brex preset uses Capital One's completed April 2026 acquisition terms with an approximate holder split. The advanced preset demonstrates a complex venture-backed sale.
 
 ## Mechanics modeled
 
 - Enterprise value, cash, debt, debt-like items, working-capital adjustments, transaction costs, change-in-control or carve-out payments, transfer taxes, and other adjustments
+- Universal transaction settings for liquidation preference, pari passu treatment, financially optimal conversion, participation, dividends, anti-dilution, escrow eligibility, and deferred consideration, with an explicit per-holder override for exceptions
 - Senior and junior preference tiers, pari passu sharing within a tier, split-priority claims, zero-to-multiple liquidation preferences, and prior-distribution offsets
 - Non-participating, fully participating, and capped participating preferred; economically optimized or manually forced conversion elections
 - Fixed, simple, or compounded cumulative dividends; partial preference waivers and pay-to-play reductions

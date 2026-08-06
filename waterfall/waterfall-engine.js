@@ -67,6 +67,94 @@ export function computeWaterfall(stakeholders, proceeds) {
   return result;
 }
 
+export function applySharedTerms(stakeholders, terms = null) {
+  if (!terms || typeof terms !== "object") return stakeholders.map((holder) => ({ ...holder }));
+
+  const preferenceRows = stakeholders
+    .map((holder, index) => ({ holder, index }))
+    .filter(({ holder }) => isPreferenceSecurity(holder))
+    .sort((a, b) => optionalOrder(b.holder.displayOrder, b.index) - optionalOrder(a.holder.displayOrder, a.index));
+  const sequentialTier = new Map(preferenceRows.map(({ holder }, index) => [holder.id, index + 1]));
+  const preferenceEnabled = terms.liquidationPreference === true;
+  const participation = preferenceEnabled && terms.participatingPreferred === true
+    ? (terms.cappedParticipation === true ? "capped" : "full")
+    : "none";
+  const dividendType = preferenceEnabled && terms.cumulativeDividends === true
+    ? (terms.dividendType || "simple")
+    : "none";
+  const ratchetType = terms.antiDilution === true ? (terms.ratchetType || "weighted-average") : "none";
+
+  return stakeholders.map((holder) => {
+    if (holder.useSharedTerms === false) {
+      if (!isPreferenceSecurity(holder)) return { ...holder };
+      const individualPreference = holder.preferenceEnabled === true;
+      const individualParticipation = individualPreference && holder.participatingPreferred === true
+        ? (holder.cappedParticipation === true ? "capped" : "full")
+        : "none";
+      const individualDividend = individualPreference && holder.cumulativeDividends === true
+        ? (["fixed", "simple", "compound"].includes(holder.dividendType) ? holder.dividendType : "simple")
+        : "none";
+      const individualRatchet = holder.antiDilution === true
+        ? (["full-ratchet", "weighted-average", "custom"].includes(holder.ratchetType) ? holder.ratchetType : "weighted-average")
+        : "none";
+      return {
+        ...holder,
+        preferenceMultiple: individualPreference ? Math.max(0, number(holder.preferenceMultiple || 1)) : 0,
+        seniority: Math.max(1, Math.round(number(holder.seniority || 1))),
+        participation: individualParticipation,
+        capMultiple: individualParticipation === "capped" ? Math.max(0, number(holder.capMultiple || 0)) : 0,
+        conversionPolicy: individualPreference ? (holder.optimalConversion !== false ? "elective" : "force-preference") : "force-convert",
+        dividendType: individualDividend,
+        accruedDividend: individualDividend === "fixed" ? Math.max(0, number(holder.accruedDividend)) : 0,
+        dividendRate: ["simple", "compound"].includes(individualDividend) ? Math.max(0, number(holder.dividendRate)) : 0,
+        dividendYears: ["simple", "compound"].includes(individualDividend) ? Math.max(0, number(holder.dividendYears)) : 0,
+        dividendPeriods: individualDividend === "compound" ? Math.max(1, Math.round(number(holder.dividendPeriods || 1))) : 1,
+        paidDividends: individualDividend !== "none" ? Math.max(0, number(holder.paidDividends)) : 0,
+        ratchetType: individualRatchet,
+        originalPrice: individualRatchet !== "none" ? Math.max(0, number(holder.originalPrice)) : 0,
+        downRoundPrice: individualRatchet !== "none" ? Math.max(0, number(holder.downRoundPrice)) : 0,
+        preRoundShares: individualRatchet === "weighted-average" ? Math.max(0, number(holder.preRoundShares)) : 0,
+        newMoney: individualRatchet === "weighted-average" ? Math.max(0, number(holder.newMoney)) : 0,
+        conversionMultiplier: individualRatchet === "custom" ? Math.max(0, number(holder.conversionMultiplier || 1)) : 1,
+        secondaryPreferenceMultiple: 0,
+        priorDistributions: 0,
+        waiverPercent: 0,
+      };
+    }
+
+    const shared = {
+      ...holder,
+      escrowEligible: terms.escrowEligibleAll !== false,
+      deferredEligible: terms.deferredEligibleAll !== false,
+    };
+    if (!isPreferenceSecurity(holder)) return shared;
+
+    return {
+      ...shared,
+      preferenceMultiple: preferenceEnabled ? Math.max(0, number(terms.preferenceMultiple || 1)) : 0,
+      seniority: terms.pariPassu === true ? 1 : (sequentialTier.get(holder.id) || 1),
+      participation,
+      capMultiple: participation === "capped" ? Math.max(0, number(terms.participationCap || 0)) : 0,
+      conversionPolicy: preferenceEnabled ? (terms.optimalConversion !== false ? "elective" : "force-preference") : "force-convert",
+      dividendType,
+      accruedDividend: dividendType === "fixed" ? Math.max(0, number(terms.accruedDividend)) : 0,
+      dividendRate: ["simple", "compound"].includes(dividendType) ? Math.max(0, number(terms.dividendRate)) : 0,
+      dividendYears: ["simple", "compound"].includes(dividendType) ? Math.max(0, number(terms.dividendYears)) : 0,
+      dividendPeriods: dividendType === "compound" ? Math.max(1, Math.round(number(terms.dividendPeriods || 1))) : 1,
+      paidDividends: dividendType !== "none" ? Math.max(0, number(terms.paidDividends)) : 0,
+      ratchetType,
+      originalPrice: ratchetType !== "none" ? Math.max(0, number(terms.originalPrice)) : 0,
+      downRoundPrice: ratchetType !== "none" ? Math.max(0, number(terms.downRoundPrice)) : 0,
+      preRoundShares: ratchetType === "weighted-average" ? Math.max(0, number(terms.preRoundShares)) : 0,
+      newMoney: ratchetType === "weighted-average" ? Math.max(0, number(terms.newMoney)) : 0,
+      conversionMultiplier: ratchetType === "custom" ? Math.max(0, number(terms.conversionMultiplier || 1)) : 1,
+      secondaryPreferenceMultiple: 0,
+      priorDistributions: 0,
+      waiverPercent: 0,
+    };
+  });
+}
+
 function allocateWithChoices(stakeholders, proceeds, choices) {
   const payouts = Object.fromEntries(stakeholders.map((holder) => [holder.id, 0]));
   const preferencePaid = Object.fromEntries(stakeholders.map((holder) => [holder.id, 0]));
@@ -358,6 +446,10 @@ function reconcileToCents(payouts, target, ids) {
 function number(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function optionalOrder(value, fallback) {
+  return Number.isFinite(Number(value)) ? Number(value) : fallback;
 }
 
 function clamp(value, minimum, maximum) {

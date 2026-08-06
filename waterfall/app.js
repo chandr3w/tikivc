@@ -1,7 +1,7 @@
-import { allocateConsideration, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=5";
-import { PRESETS, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=5";
+import { allocateConsideration, applySharedTerms, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=6";
+import { PRESETS, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=6";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v5";
+const STORAGE_KEY = "tiki-exit-waterfall-v6";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -18,7 +18,7 @@ const GENERAL_SOURCES = [
   { label: "SRS Acquiom: 2025 M&A terms study", url: "https://media.taftlaw.com/wp-content/uploads/2025/04/15175412/2025-SRS-Acquiom-MA-Deal-Terms-Study-2-page-quick-reference.pdf", note: "Market context for consideration mix, escrows, earnouts and option treatment." },
 ];
 
-let state = loadSavedState() || clonePreset("airtable");
+let state = normalizeState(loadSavedState() || clonePreset("airtable"));
 let activeInputTab = "deal";
 
 const dealFields = [
@@ -48,6 +48,24 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function normalizeState(model) {
+  const defaults = clonePreset("clean").terms;
+  const holderDefaults = blankStakeholder("defaults");
+  const stakeholders = (model.stakeholders || []).map((holder) => ({
+    ...holderDefaults,
+    ...holder,
+    id: holder.id,
+    useSharedTerms: holder.useSharedTerms !== false,
+    preferenceEnabled: holder.preferenceEnabled ?? number(holder.preferenceMultiple) > 0,
+    optimalConversion: holder.optimalConversion !== false,
+    participatingPreferred: holder.participatingPreferred ?? ["full", "capped"].includes(holder.participation),
+    cappedParticipation: holder.cappedParticipation ?? holder.participation === "capped",
+    cumulativeDividends: holder.cumulativeDividends ?? (holder.dividendType && holder.dividendType !== "none"),
+    antiDilution: holder.antiDilution ?? (holder.ratchetType && holder.ratchetType !== "none"),
+  }));
+  return { ...model, stakeholders, terms: { ...defaults, ...(model.terms || {}) } };
+}
+
 function renderAll() {
   presetSelect.value = state.meta?.preset in PRESETS ? state.meta.preset : "airtable";
   document.querySelectorAll(".input-tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === activeInputTab));
@@ -71,7 +89,7 @@ function renderDealControls() {
     <div class="panel-heading"><div><span class="kicker">purchase price</span><h2>Deal bridge</h2></div><span class="panel-total">${formatMoney(bridge.equityValue)}</span></div>
     <p class="panel-note">Start with enterprise value, then bridge to the value available for the security waterfall.</p>
     <div class="form-grid">${core.map(renderDealField).join("")}</div>
-    <details class="subsection">
+    <details class="subsection" open>
       <summary>additional bridge adjustments</summary>
       <div class="subsection-body form-grid">${advanced.map(renderDealField).join("")}</div>
     </details>`;
@@ -84,9 +102,43 @@ function renderDealField([key, label, type, wide = false]) {
 function renderStakeholderControls() {
   return `
     <div class="panel-heading"><div><span class="kicker">priority stack</span><h2>Securities</h2></div><span class="panel-total">${state.stakeholders.length} rows</span></div>
-    <p class="panel-note">Tier 1 is most senior. Equal tiers share an underfunded tier pari passu. Preference defaults to 0×.</p>
+    <p class="panel-note">Every security uses the shared transaction terms below. The clean default is as-converted common: preferences and pari passu are both off.</p>
+    ${renderSharedTerms()}
     ${state.stakeholders.map(renderStakeholderEditor).join("")}
     <button class="button add-row" type="button" data-action="add-stakeholder">add stakeholder or class</button>`;
+}
+
+function renderSharedTerms() {
+  const terms = state.terms;
+  return `<section class="shared-terms" aria-labelledby="shared-terms-title">
+    <header class="shared-terms-heading"><div><span class="kicker">blanket settings</span><h3 id="shared-terms-title">Shared transaction terms</h3></div><span>applies to all holders</span></header>
+    <div class="shared-checks">
+      ${booleanField("terms", "liquidationPreference", "Enable liquidation preference", terms.liquidationPreference)}
+      ${booleanField("terms", "pariPassu", "Pari passu across preferred classes", terms.pariPassu, !terms.liquidationPreference)}
+      ${booleanField("terms", "optimalConversion", "Use financially optimal conversion", terms.optimalConversion, !terms.liquidationPreference)}
+      ${booleanField("terms", "participatingPreferred", "Participating preferred", terms.participatingPreferred, !terms.liquidationPreference)}
+      ${booleanField("terms", "cappedParticipation", "Cap participation", terms.cappedParticipation, !terms.liquidationPreference || !terms.participatingPreferred)}
+      ${booleanField("terms", "cumulativeDividends", "Cumulative dividends", terms.cumulativeDividends, !terms.liquidationPreference)}
+      ${booleanField("terms", "antiDilution", "Anti-dilution ratchet", terms.antiDilution)}
+      ${booleanField("terms", "escrowEligibleAll", "All holders share escrows / holdbacks", terms.escrowEligibleAll)}
+      ${booleanField("terms", "deferredEligibleAll", "All holders share deferred consideration", terms.deferredEligibleAll)}
+    </div>
+    <div class="form-grid shared-term-values">
+      ${terms.liquidationPreference ? inputField({ label: "Preference multiple", value: terms.preferenceMultiple, inputType: "number", scope: "terms", field: "preferenceMultiple" }) : ""}
+      ${terms.liquidationPreference && terms.participatingPreferred && terms.cappedParticipation ? inputField({ label: "Participation cap", value: terms.participationCap, inputType: "number", scope: "terms", field: "participationCap" }) : ""}
+      ${terms.liquidationPreference && terms.cumulativeDividends ? selectSimpleField("terms", "dividendType", "Dividend method", terms.dividendType, [["fixed","Fixed accrued"],["simple","Simple annual"],["compound","Compound annual"]]) : ""}
+      ${terms.liquidationPreference && terms.cumulativeDividends && terms.dividendType === "fixed" ? inputField({ label: "Accrued dividend", value: terms.accruedDividend, inputType: "money", scope: "terms", field: "accruedDividend" }) : ""}
+      ${terms.liquidationPreference && terms.cumulativeDividends && ["simple","compound"].includes(terms.dividendType) ? inputField({ label: "Dividend rate", value: terms.dividendRate, inputType: "percent", scope: "terms", field: "dividendRate" }) : ""}
+      ${terms.liquidationPreference && terms.cumulativeDividends && ["simple","compound"].includes(terms.dividendType) ? inputField({ label: "Accrual years", value: terms.dividendYears, inputType: "number", scope: "terms", field: "dividendYears" }) : ""}
+      ${terms.antiDilution ? selectSimpleField("terms", "ratchetType", "Ratchet method", terms.ratchetType, [["full-ratchet","Full ratchet"],["weighted-average","Weighted average"],["custom","Custom multiplier"]]) : ""}
+      ${terms.antiDilution && terms.ratchetType !== "custom" ? inputField({ label: "Original conversion price", value: terms.originalPrice, inputType: "number", scope: "terms", field: "originalPrice" }) : ""}
+      ${terms.antiDilution && terms.ratchetType !== "custom" ? inputField({ label: "Down-round price", value: terms.downRoundPrice, inputType: "number", scope: "terms", field: "downRoundPrice" }) : ""}
+      ${terms.antiDilution && terms.ratchetType === "weighted-average" ? inputField({ label: "Pre-round cap (A)", value: terms.preRoundShares, inputType: "shares", scope: "terms", field: "preRoundShares" }) : ""}
+      ${terms.antiDilution && terms.ratchetType === "weighted-average" ? inputField({ label: "Down-round new money", value: terms.newMoney, inputType: "money", scope: "terms", field: "newMoney" }) : ""}
+      ${terms.antiDilution && terms.ratchetType === "custom" ? inputField({ label: "Share multiplier", value: terms.conversionMultiplier, inputType: "number", scope: "terms", field: "conversionMultiplier" }) : ""}
+    </div>
+    <p class="shared-terms-note">When preference is off, every preferred security converts and shares proceeds on the same as-converted basis. When preference is on, each holder takes the financially superior preference-or-conversion outcome by default. Pari passu remains off unless selected.</p>
+  </section>`;
 }
 
 function renderConsiderationControls() {
@@ -99,7 +151,7 @@ function renderConsiderationControls() {
 
 function renderTrancheEditor(tranche, index) {
   return `
-    <details class="editor-row">
+    <details class="editor-row" open>
       <summary class="editor-summary"><span class="editor-summary-main"><strong>${escapeHtml(tranche.label)}</strong><span>${escapeHtml(labelForType(tranche.type))} · ${tranche.treatment === "incremental" ? "incremental" : "included"}</span></span><span class="editor-amount">${formatMoney(tranche.amount)}</span></summary>
       <div class="editor-body"><div class="form-grid">
         ${indexedField(index, "tranche", "label", "Label", tranche.label, "text", true)}
@@ -116,9 +168,8 @@ function renderTrancheEditor(tranche, index) {
 function renderStakeholderEditor(holder, index) {
   const preferenceSecurity = ["preferred", "safe", "note"].includes(holder.securityType);
   const optionLike = ["option", "warrant"].includes(holder.securityType);
-  const ratchet = holder.ratchetType && holder.ratchetType !== "none";
   return `
-    <details class="editor-row">
+    <details class="editor-row" open>
       <summary class="editor-summary"><span class="editor-summary-main"><strong>${escapeHtml(holder.name)}</strong><span>${escapeHtml(labelForSecurity(holder.securityType))} · ${formatShares(holder.shares)}</span></span></summary>
       <div class="editor-body"><div class="form-grid">
         ${indexedField(index, "stakeholder", "name", "Stakeholder / class", holder.name, "text", true)}
@@ -127,48 +178,62 @@ function renderStakeholderEditor(holder, index) {
         ${indexedField(index, "stakeholder", "shares", "As-converted shares", holder.shares, "shares")}
         ${indexedField(index, "stakeholder", "eligiblePercent", "Vested / eligible", holder.eligiblePercent, "percent")}
         ${optionLike ? indexedField(index, "stakeholder", "strike", "Strike per share", holder.strike, "number") : ""}
-        ${preferenceSecurity ? `
-          ${indexedField(index, "stakeholder", "invested", "Preference base", holder.invested, "money")}
-          ${indexedField(index, "stakeholder", "preferenceMultiple", "Preference multiple", holder.preferenceMultiple, "number")}
-          ${indexedField(index, "stakeholder", "seniority", "Seniority tier", holder.seniority, "number")}
-          ${selectField(index, "stakeholder", "participation", "Participation", holder.participation, [["none","Non-participating"],["full","Fully participating"],["capped","Capped participation"]])}
-          ${holder.participation === "capped" ? indexedField(index, "stakeholder", "capMultiple", "Participation cap", holder.capMultiple, "number") : ""}
-          ${selectField(index, "stakeholder", "conversionPolicy", "Conversion election", holder.conversionPolicy, [["elective","Economically optimal"],["force-convert","Force conversion"],["force-preference","Force preference"]])}
-          ${selectField(index, "stakeholder", "dividendType", "Cumulative dividend", holder.dividendType || "none", [["none","None"],["fixed","Fixed accrued"],["simple","Simple annual"],["compound","Compound annual"]])}
-          ${holder.dividendType === "fixed" ? indexedField(index, "stakeholder", "accruedDividend", "Accrued dividend", holder.accruedDividend, "money") : ""}
-          ${["simple","compound"].includes(holder.dividendType) ? indexedField(index, "stakeholder", "dividendRate", "Dividend rate", holder.dividendRate, "percent") : ""}
-          ${["simple","compound"].includes(holder.dividendType) ? indexedField(index, "stakeholder", "dividendYears", "Accrual years", holder.dividendYears, "number") : ""}
-          ${holder.dividendType === "compound" ? indexedField(index, "stakeholder", "dividendPeriods", "Periods per year", holder.dividendPeriods, "number") : ""}
-          ${holder.dividendType !== "none" ? indexedField(index, "stakeholder", "paidDividends", "Dividends already paid", holder.paidDividends, "money") : ""}
-          ${indexedField(index, "stakeholder", "secondaryPreferenceMultiple", "Split claim multiple", holder.secondaryPreferenceMultiple, "number")}
-          ${Number(holder.secondaryPreferenceMultiple) > 0 ? indexedField(index, "stakeholder", "secondarySeniority", "Split claim tier", holder.secondarySeniority, "number") : ""}
-          ${indexedField(index, "stakeholder", "priorDistributions", "Prior distributions", holder.priorDistributions, "money")}
-          ${indexedField(index, "stakeholder", "waiverPercent", "Preference waiver", holder.waiverPercent, "percent")}
-          ${selectField(index, "stakeholder", "ratchetType", "Anti-dilution ratchet", holder.ratchetType, [["none","None"],["full-ratchet","Full ratchet"],["weighted-average","Weighted average"],["custom","Custom multiplier"]])}
-          ${ratchet && holder.ratchetType !== "custom" ? indexedField(index, "stakeholder", "originalPrice", "Original conversion price", holder.originalPrice, "number") : ""}
-          ${ratchet && holder.ratchetType !== "custom" ? indexedField(index, "stakeholder", "downRoundPrice", "Down-round price", holder.downRoundPrice, "number") : ""}
-          ${holder.ratchetType === "weighted-average" ? indexedField(index, "stakeholder", "preRoundShares", "Pre-round cap (A)", holder.preRoundShares, "shares") : ""}
-          ${holder.ratchetType === "weighted-average" ? indexedField(index, "stakeholder", "newMoney", "Down-round new money", holder.newMoney, "money") : ""}
-          ${holder.ratchetType === "custom" ? indexedField(index, "stakeholder", "conversionMultiplier", "Share multiplier", holder.conversionMultiplier, "number") : ""}
-        ` : ""}
-        ${checkboxField(index, "escrowEligible", "Contributes to escrows / holdbacks", holder.escrowEligible)}
-        ${checkboxField(index, "deferredEligible", "Receives notes, earnouts or rollover", holder.deferredEligible)}
-      </div><div class="editor-actions"><button class="button danger" type="button" data-action="remove-stakeholder" data-index="${index}">remove</button></div></div>
+        ${preferenceSecurity ? indexedField(index, "stakeholder", "invested", "Initial investment", holder.invested, "money") : ""}
+      </div>
+      <div class="holder-terms">
+        ${indexedBooleanField(index, "useSharedTerms", "Use universal transaction settings", holder.useSharedTerms)}
+        ${holder.useSharedTerms ? `<p class="holder-terms-note">Universal preference, priority, participation, ratchet and consideration settings apply.</p>` : renderIndividualTerms(holder, index, preferenceSecurity)}
+      </div>
+      <div class="editor-actions"><button class="button danger" type="button" data-action="remove-stakeholder" data-index="${index}">remove</button></div></div>
     </details>`;
+}
+
+function renderIndividualTerms(holder, index, preferenceSecurity) {
+  const dividendType = ["fixed", "simple", "compound"].includes(holder.dividendType) ? holder.dividendType : "simple";
+  const ratchetType = ["full-ratchet", "weighted-average", "custom"].includes(holder.ratchetType) ? holder.ratchetType : "weighted-average";
+  return `<div class="individual-terms">
+    <span class="individual-terms-label">individual override</span>
+    <div class="shared-checks">
+      ${preferenceSecurity ? indexedBooleanField(index, "preferenceEnabled", "Enable liquidation preference", holder.preferenceEnabled) : ""}
+      ${preferenceSecurity ? indexedBooleanField(index, "optimalConversion", "Use financially optimal conversion", holder.optimalConversion, !holder.preferenceEnabled) : ""}
+      ${preferenceSecurity ? indexedBooleanField(index, "participatingPreferred", "Participating preferred", holder.participatingPreferred, !holder.preferenceEnabled) : ""}
+      ${preferenceSecurity ? indexedBooleanField(index, "cappedParticipation", "Cap participation", holder.cappedParticipation, !holder.preferenceEnabled || !holder.participatingPreferred) : ""}
+      ${preferenceSecurity ? indexedBooleanField(index, "cumulativeDividends", "Cumulative dividends", holder.cumulativeDividends, !holder.preferenceEnabled) : ""}
+      ${preferenceSecurity ? indexedBooleanField(index, "antiDilution", "Anti-dilution ratchet", holder.antiDilution) : ""}
+      ${indexedBooleanField(index, "escrowEligible", "Shares escrows / holdbacks", holder.escrowEligible)}
+      ${indexedBooleanField(index, "deferredEligible", "Shares deferred consideration", holder.deferredEligible)}
+    </div>
+    ${preferenceSecurity ? `<div class="form-grid shared-term-values">
+      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "preferenceMultiple", "Preference multiple", holder.preferenceMultiple || 1, "number") : ""}
+      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "seniority", "Seniority tier", holder.seniority, "number") : ""}
+      ${holder.preferenceEnabled && holder.participatingPreferred && holder.cappedParticipation ? indexedField(index, "stakeholder", "capMultiple", "Participation cap", holder.capMultiple || 3, "number") : ""}
+      ${holder.preferenceEnabled && holder.cumulativeDividends ? selectField(index, "stakeholder", "dividendType", "Dividend method", dividendType, [["fixed","Fixed accrued"],["simple","Simple annual"],["compound","Compound annual"]]) : ""}
+      ${holder.preferenceEnabled && holder.cumulativeDividends && dividendType === "fixed" ? indexedField(index, "stakeholder", "accruedDividend", "Accrued dividend", holder.accruedDividend, "money") : ""}
+      ${holder.preferenceEnabled && holder.cumulativeDividends && ["simple","compound"].includes(dividendType) ? indexedField(index, "stakeholder", "dividendRate", "Dividend rate", holder.dividendRate, "percent") : ""}
+      ${holder.preferenceEnabled && holder.cumulativeDividends && ["simple","compound"].includes(dividendType) ? indexedField(index, "stakeholder", "dividendYears", "Accrual years", holder.dividendYears, "number") : ""}
+      ${holder.antiDilution ? selectField(index, "stakeholder", "ratchetType", "Ratchet method", ratchetType, [["full-ratchet","Full ratchet"],["weighted-average","Weighted average"],["custom","Custom multiplier"]]) : ""}
+      ${holder.antiDilution && ratchetType !== "custom" ? indexedField(index, "stakeholder", "originalPrice", "Original conversion price", holder.originalPrice, "number") : ""}
+      ${holder.antiDilution && ratchetType !== "custom" ? indexedField(index, "stakeholder", "downRoundPrice", "Down-round price", holder.downRoundPrice, "number") : ""}
+      ${holder.antiDilution && ratchetType === "weighted-average" ? indexedField(index, "stakeholder", "preRoundShares", "Pre-round cap (A)", holder.preRoundShares, "shares") : ""}
+      ${holder.antiDilution && ratchetType === "weighted-average" ? indexedField(index, "stakeholder", "newMoney", "Down-round new money", holder.newMoney, "money") : ""}
+      ${holder.antiDilution && ratchetType === "custom" ? indexedField(index, "stakeholder", "conversionMultiplier", "Share multiplier", holder.conversionMultiplier, "number") : ""}
+    </div>` : ""}
+  </div>`;
 }
 
 function calculateModel() {
   const bridge = computeEquityBridge(state.deal);
   const incremental = incrementalConsideration();
   const grossProceeds = bridge.equityValue + incremental;
-  const waterfall = computeWaterfall(state.stakeholders, grossProceeds);
-  const consideration = allocateConsideration(state.stakeholders, waterfall.payouts, state.tranches, state.deal.discountRate);
-  const rows = state.stakeholders.map((holder, index) => {
+  const effectiveStakeholders = applySharedTerms(state.stakeholders, state.terms);
+  const waterfall = computeWaterfall(effectiveStakeholders, grossProceeds);
+  const consideration = allocateConsideration(effectiveStakeholders, waterfall.payouts, state.tranches, state.deal.discountRate);
+  const rows = effectiveStakeholders.map((holder, index) => {
     const timing = consideration.results[holder.id] || { entitlement: 0, closingCash: 0, expectedPresentValue: 0, tranches: {} };
     const deferred = Object.values(timing.tranches).reduce((sum, amount) => sum + amount, 0);
     return { holder, index, timing, deferred };
   }).sort((a, b) => optionalOrder(a.holder.displayOrder) - optionalOrder(b.holder.displayOrder) || b.timing.entitlement - a.timing.entitlement);
-  return { bridge, incremental, grossProceeds, waterfall, consideration, rows };
+  return { bridge, incremental, grossProceeds, waterfall, consideration, rows, effectiveStakeholders };
 }
 
 function renderResults() {
@@ -231,14 +296,19 @@ function renderClassProceeds(rows, waterfall, total) {
   });
   const classes = [...groups.values()].sort((a, b) => a.displayOrder - b.displayOrder || b.gross - a.gross);
   const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
-  const stacked = classes.map((item, index) => `<span class="class-segment ${colors[index % colors.length]}" style="width:${total > 0 ? Math.max(0, item.gross / total * 100) : 0}%"><span class="sr-only">${escapeHtml(item.name)} ${escapeHtml(formatPercent(total > 0 ? item.gross / total : 0))}</span></span>`).join("");
+  const scaleMax = Math.max(1, ...classes.flatMap((item) => [item.invested, item.gross]));
   const rowsHtml = classes.map((item, index) => {
     const share = total > 0 ? item.gross / total : 0;
-    const basis = item.invested > 0 ? ` · ${formatMoney(item.invested)} invested` : "";
-    const multiple = item.invested > 0 ? ` · ${formatMultiple(item.gross / item.invested)}` : "";
-    return `<div class="class-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml([...item.securityTypes].join(" + "))} · ${escapeHtml(formatShares(item.shares))}${escapeHtml(basis)}</small></span></div><div class="class-value"><strong>${formatMoney(item.gross)}</strong><small>${formatPercent(share)}${multiple}${item.preference > 0 ? ` · ${formatMoney(item.preference)} preference` : ""}</small></div></div>`;
+    const outcome = item.invested > 0 ? `${formatMultiple(item.gross / item.invested)} · ${formatPercent(share)} of proceeds` : `${formatPercent(share)} of proceeds`;
+    const initialWidth = Math.max(0, item.invested / scaleMax * 100);
+    const exitWidth = Math.max(0, item.gross / scaleMax * 100);
+    return `<div class="class-compare-row">
+      <div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(outcome)}</small></span></div>
+      <div class="compare-value initial"><div class="compare-label"><span>initial investment</span><strong>${formatMoney(item.invested)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${initialWidth}%"></span></div></div>
+      <div class="compare-value exit"><div class="compare-label"><span>exit value</span><strong>${formatMoney(item.gross)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${exitWidth}%"></span></div></div>
+    </div>`;
   }).join("");
-  return `<section class="viz-panel class-panel" aria-labelledby="class-chart-title"><div class="viz-heading"><div><span class="section-label">class outcomes</span><h3 id="class-chart-title">Exit proceeds by share class</h3></div><p>gross distribution</p></div><div class="class-stack" role="img" aria-label="Gross proceeds allocated across ${classes.length} share classes">${stacked}</div><div class="class-breakdown">${rowsHtml || `<p class="empty-state">Add a security class to calculate proceeds.</p>`}</div></section>`;
+  return `<section class="viz-panel class-panel" aria-labelledby="class-chart-title"><div class="viz-heading"><div><span class="section-label">shareholder outcomes</span><h3 id="class-chart-title">Initial investment vs exit value</h3></div><p>paired bars use one dollar scale</p></div><div class="class-comparison" role="img" aria-label="Side-by-side initial investment and exit value bars for ${classes.length} shareholder classes">${rowsHtml || `<p class="empty-state">Add a security class to calculate proceeds.</p>`}</div></section>`;
 }
 
 function sensitivityData() {
@@ -272,7 +342,12 @@ function renderPayoutTable(rows, waterfall, total) {
     const preferenceSecurity = ["preferred","safe","note"].includes(holder.securityType);
     const multiplier = preferenceSecurity ? ratchetMultiplier(holder) : 1;
     const share = total > 0 ? row.timing.entitlement / total : 0;
-    const detail = preferenceSecurity ? `${waterfall.choiceById[holder.id]} · tier ${holder.seniority}${multiplier > 1.0001 ? ` · ${multiplier.toFixed(3)}× ratchet` : ""}` : ["option","warrant"].includes(holder.securityType) ? `${formatMoney(holder.strike)} strike` : "as-converted";
+    const preferenceChoice = waterfall.choiceById[holder.id];
+    const detail = preferenceSecurity
+      ? preferenceChoice === "preference"
+        ? `preference · tier ${holder.seniority}${multiplier > 1.0001 ? ` · ${multiplier.toFixed(3)}× ratchet` : ""}`
+        : `as-converted common${multiplier > 1.0001 ? ` · ${multiplier.toFixed(3)}× ratchet` : ""}`
+      : ["option","warrant"].includes(holder.securityType) ? `${formatMoney(holder.strike)} strike` : "as-converted";
     const className = holder.className?.trim() || inferredClassName(holder);
     const securityLabel = labelForSecurity(holder.securityType);
     const classDetail = className === securityLabel ? detail : `${securityLabel} · ${detail}`;
@@ -282,13 +357,13 @@ function renderPayoutTable(rows, waterfall, total) {
 }
 
 function renderDialogs() {
-  const { waterfall } = calculateModel();
-  const activePrefs = state.stakeholders.filter((holder) => ["preferred","safe","note"].includes(holder.securityType) && (number(holder.preferenceMultiple) > 0 || number(holder.secondaryPreferenceMultiple) > 0 || number(holder.accruedDividend) > 0 || number(holder.dividendRate) > 0));
+  const { waterfall, effectiveStakeholders } = calculateModel();
+  const activePrefs = effectiveStakeholders.filter((holder) => ["preferred","safe","note"].includes(holder.securityType) && (number(holder.preferenceMultiple) > 0 || number(holder.secondaryPreferenceMultiple) > 0 || number(holder.accruedDividend) > 0 || number(holder.dividendRate) > 0));
   const tiers = [...new Set(activePrefs.map((holder) => number(holder.seniority)))].sort((a,b)=>a-b);
   methodsContent.innerHTML = `<div class="explainers">
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
     ${explainer("Share-class view", "Each stakeholder row maps to a share class or pool. The class chart combines gross payout, eligible shares and preference paid across rows with the same class name. The stakeholder table preserves holder-level detail.")}
-    ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. Tier 1 pays first; claims sharing a tier split an underfunded pool pro rata by claim amount.` : "No liquidation preference claim is active. Eligible common equivalents share residual value.")}
+    ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. ${state.terms.pariPassu ? "The universal pari passu setting is on, so shared-term preferred classes occupy the same tier." : "The universal pari passu setting is off; later shared-term financing rounds are senior by default."} Tier 1 pays first.` : "Liquidation preference and pari passu are off in the clean default. Eligible securities share value on an as-converted common basis.")}
     ${explainer("Conversion elections", waterfall.stableElection ? "The solver evaluates up to 4,096 preference and conversion combinations for 12 elective classes. A class takes preference when conversion would not improve its payout with the other elections held fixed." : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
     ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple. A class may split claims across two priority tiers.")}
     ${explainer("Ratchets and dividends", "Full ratchet resets the conversion price to the down-round price. Weighted average uses CP2 = CP1 × (A + B) / (A + C). Fixed, simple or compounded cumulative dividends can increase preference; prior payments and waivers reduce it.")}
@@ -313,7 +388,7 @@ function buildWarnings(bridge, waterfall, consideration) {
   consideration.warnings.forEach((text) => warnings.push({ text }));
   const ids = state.stakeholders.map((holder) => holder.id);
   if (new Set(ids).size !== ids.length) warnings.push({ tone: "danger", text: "Stakeholder IDs must be unique." });
-  state.stakeholders.filter((holder) => ["preferred","safe","note"].includes(holder.securityType) && holder.ratchetType !== "none").forEach((holder) => {
+  applySharedTerms(state.stakeholders, state.terms).filter((holder) => ["preferred","safe","note"].includes(holder.securityType) && holder.ratchetType !== "none").forEach((holder) => {
     const multiplier = ratchetMultiplier(holder);
     if (multiplier > 1.0001) warnings.push({ text: `${holder.name} anti-dilution increases as-converted shares by ${multiplier.toFixed(3)}×.` });
   });
@@ -349,8 +424,16 @@ function selectField(index, scope, field, label, value, options) {
   return `<label class="field"><span>${escapeHtml(label)}</span><select data-scope="${scope}" data-index="${index}" data-field="${field}" data-value-type="select">${options.map(([optionValue, optionLabel]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}</select></label>`;
 }
 
-function checkboxField(index, field, label, checked) {
-  return `<label class="check-field"><input type="checkbox" data-scope="stakeholder" data-index="${index}" data-field="${field}" data-value-type="boolean" ${checked ? "checked" : ""}><span>${escapeHtml(label)}</span></label>`;
+function selectSimpleField(scope, field, label, value, options) {
+  return `<label class="field"><span>${escapeHtml(label)}</span><select data-scope="${scope}" data-field="${field}" data-value-type="select">${options.map(([optionValue, optionLabel]) => `<option value="${escapeAttribute(optionValue)}" ${optionValue === value ? "selected" : ""}>${escapeHtml(optionLabel)}</option>`).join("")}</select></label>`;
+}
+
+function booleanField(scope, field, label, checked, disabled = false) {
+  return `<label class="check-field"><input type="checkbox" data-scope="${scope}" data-field="${field}" data-value-type="boolean" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${escapeHtml(label)}</span></label>`;
+}
+
+function indexedBooleanField(index, field, label, checked, disabled = false) {
+  return `<label class="check-field"><input type="checkbox" data-scope="stakeholder" data-index="${index}" data-field="${field}" data-value-type="boolean" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${escapeHtml(label)}</span></label>`;
 }
 
 function metric(label, value, primary = false) {
@@ -364,6 +447,7 @@ function updateStateFromControl(target) {
   if (valueType === "boolean") value = target.checked;
   else if (["money","shares","number","percent"].includes(valueType)) value = parseCompact(value);
   if (scope === "deal") state.deal[field] = value;
+  if (scope === "terms") state.terms[field] = value;
   if (scope === "tranche") state.tranches[number(index)][field] = value;
   if (scope === "stakeholder") state.stakeholders[number(index)][field] = value;
   state.meta = { ...(state.meta || {}), preset: "custom", title: "Custom model", description: "Edited transaction model" };
@@ -411,8 +495,8 @@ document.querySelector(".input-tabs").addEventListener("click", (event) => {
   renderControls();
 });
 
-presetSelect.addEventListener("change", () => { state = clonePreset(presetSelect.value); renderAll(); });
-document.querySelector("#reset-button").addEventListener("click", () => { const preset = state.meta?.preset in PRESETS ? state.meta.preset : presetSelect.value; state = clonePreset(preset); renderAll(); });
+presetSelect.addEventListener("change", () => { state = normalizeState(clonePreset(presetSelect.value)); renderAll(); });
+document.querySelector("#reset-button").addEventListener("click", () => { const preset = state.meta?.preset in PRESETS ? state.meta.preset : presetSelect.value; state = normalizeState(clonePreset(preset)); renderAll(); });
 document.querySelector("#methods-button").addEventListener("click", () => methodsDialog.showModal());
 document.querySelector("#sources-button").addEventListener("click", () => sourcesDialog.showModal());
 
@@ -432,7 +516,7 @@ importFile.addEventListener("change", async () => {
   try {
     const imported = JSON.parse(await file.text());
     if (!imported?.deal || !Array.isArray(imported.stakeholders) || !Array.isArray(imported.tranches)) throw new Error("Invalid model");
-    state = imported;
+    state = normalizeState(imported);
     state.meta = { ...(state.meta || {}), preset: "custom", title: state.meta?.title || "Imported model" };
     renderAll();
   } catch {
