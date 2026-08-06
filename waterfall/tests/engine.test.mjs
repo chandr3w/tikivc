@@ -143,17 +143,31 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
 }
 
 {
-  const airbnb = clonePreset("airbnb");
-  const bridge = computeEquityBridge(airbnb.deal);
-  const result = computeWaterfall(airbnb.stakeholders, bridge.equityValue);
-  const timing = allocateConsideration(airbnb.stakeholders, result.payouts, airbnb.tranches, airbnb.deal.discountRate);
+  const airtable = clonePreset("airtable");
+  const bridge = computeEquityBridge(airtable.deal);
+  const result = computeWaterfall(airtable.stakeholders, bridge.equityValue);
+  const timing = allocateConsideration(airtable.stakeholders, result.payouts, airtable.tranches, airtable.deal.discountRate);
   const stock = Object.values(timing.results).reduce((sum, row) => sum + (row.tranches["buyer-stock"] || 0), 0);
   const cash = Object.values(timing.results).reduce((sum, row) => sum + row.closingCash, 0);
-  assert.equal(bridge.equityValue, 120_742_857_370);
-  assert.equal(result.pricePerShare, 190);
-  assert.equal(result.payouts.options, 452_922_000);
-  assert.equal(stock, 30_185_714_343);
-  assert.ok(Math.abs(cash - 90_557_143_027) < 0.01);
+  assert.equal(bridge.equityValue, 8_000_000_000);
+  assert.ok(Math.abs(result.pricePerShare - 80.16) < 0.0001);
+  assert.ok(Math.abs(result.payouts.options - 625_280_000) < 0.01);
+  assert.equal(stock, 0);
+  assert.ok(Math.abs(cash - 8_000_000_000) < 0.01);
+}
+
+{
+  const brex = clonePreset("brex");
+  const bridge = computeEquityBridge(brex.deal);
+  const result = computeWaterfall(brex.stakeholders, bridge.equityValue);
+  const timing = allocateConsideration(brex.stakeholders, result.payouts, brex.tranches, brex.deal.discountRate);
+  const stock = Object.values(timing.results).reduce((sum, row) => sum + (row.tranches["buyer-stock"] || 0), 0);
+  const cash = Object.values(timing.results).reduce((sum, row) => sum + row.closingCash, 0);
+  assert.equal(bridge.equityValue, 4_460_000_000);
+  assert.ok(Math.abs(result.pricePerShare - 44.84) < 0.0001);
+  assert.ok(Math.abs(result.payouts.options - 334_720_000) < 0.01);
+  assert.ok(Math.abs(stock - 1_900_000_000) < 0.01);
+  assert.ok(Math.abs(cash - 2_560_000_000) < 0.01);
 }
 
 {

@@ -2,7 +2,7 @@
 
 A dependency-free M&A exit simulator for moving from enterprise value to holder-level proceeds. It models the purchase-price bridge, security waterfall, and the timing/form of consideration as separate ledgers. The one-screen Atas VC workspace pairs compact inputs with an EV bridge waterfall chart, proceeds-ownership donut, and exit-sensitivity curve; methods and sources live in focused dialogs.
 
-The default model is intentionally clean: a $100 million cash acquisition, no adjustments, no preferences, and an 80/20 common ownership split. The Airbnb preset combines public capitalization and balance-sheet data with clearly labeled hypothetical deal terms. The advanced preset demonstrates a complex venture-backed sale.
+The default Airtable model is a clean $8.0 billion cash acquisition. Airtable's disclosed funding history anchors the case; the purchase price, cash balance, cap table, option pool and strike price are labeled as model inputs. A separate Brex preset uses Capital One's completed April 2026 acquisition terms with an approximate holder split. The advanced preset demonstrates a complex venture-backed sale.
 
 ## Mechanics modeled
 
@@ -16,7 +16,7 @@ The default model is intentionally clean: a $100 million cash acquisition, no ad
 - Buyer stock, purchase-price and indemnity escrows, representative expense funds, seller notes, earnouts, rollover equity, and other tranches
 - Included versus incremental contingent consideration, probability-weighted present value, and EV sensitivity
 
-The waterfall enumerates elective preference/conversion combinations for up to 12 elective classes, applies senior tiers in order, shares an underfunded tier pro rata by claim amount, then solves the residual common-equivalent value—including in-the-money option spread—by binary search. Results reconcile to cents.
+The waterfall enumerates elective preference and conversion combinations for up to 12 elective classes, applies senior tiers in order, shares an underfunded tier pro rata by claim amount, then solves residual common-equivalent value with in-the-money option spread by binary search. Results reconcile to cents.
 
 ## Run locally
 
@@ -27,9 +27,13 @@ npm run serve
 
 Open `http://127.0.0.1:8770`. The app has no runtime dependencies, sends no model data to a server, and stores the working model in browser local storage. Models can be downloaded and re-imported as JSON.
 
-## Airbnb preset
+## Airtable preset
 
-Public facts are based on Airbnb’s Q1 2026 Form 10-Q and 2026 proxy. The preset excludes company-owned Class H shares and separates disclosed options and RSUs from voting shares. It models an illustrative $190 per-share acquisition with $120.74 billion of fully diluted equity value and a 75% cash / 25% buyer-stock mix. The offer price, premium, and consideration mix are hypothetical and editable; every source and assumption appears in the sources dialog.
+Airtable disclosed a $735 million Series F at an $11 billion pre-money valuation in December 2021 and $1.36 billion of total funding. It has not disclosed a current cap table or cash balance. The preset models an $8.0 billion cash acquisition with 100 million fully diluted units, a $500 million cash balance, no debt and no liquidation preferences. Each stakeholder name containing "modeled" is an approximation.
+
+## Brex preset
+
+Capital One completed its Brex acquisition on April 7, 2026. Its closing Form 8-K reports about $2.56 billion of cash and 10.65 million Capital One shares, valued near $1.9 billion at closing. The preset uses that $4.46 billion closing value and consideration mix. Brex's holder split, option pool and strike price remain modeled inputs because the full cap table is not public.
 
 ## Research basis
 

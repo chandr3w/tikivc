@@ -6,29 +6,27 @@
     <meta name="description" content="Model enterprise-to-equity value and distribute M&A proceeds across security classes, preferences and consideration tranches.">
     <meta name="theme-color" content="#0a0a0c">
     <link rel="icon" href="./assets/atas-mark-white.png" type="image/png">
-    <title>M&amp;A Proceeds Simulator — Atas VC</title>
+    <title>M&amp;A Proceeds Simulator | Atas VC</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <a class="skip-link" href="#results">skip to results</a>
 
-    <div class="corner tl"><a href="https://atas.vc"><img src="./assets/atas-mark-white.png" alt="" class="corner-mark"><b>atas</b></a></div>
-    <div class="corner tr"><span class="status-dot" aria-hidden="true"></span>live model</div>
+    <div class="corner tl"><a href="https://atas.vc" aria-label="Atas VC home"><img src="./assets/atas-logo-white.png" alt="Atas VC" class="corner-logo"></a></div>
     <div class="corner bl">m&amp;a proceeds simulator</div>
-    <div class="corner br"><span id="clock">—</span></div>
+    <div class="corner br"><span id="clock">00:00:00</span></div>
 
     <div class="app-shell">
       <header class="app-header">
         <div class="brand-lockup">
-          <a href="https://atas.vc" aria-label="Atas VC home"><img src="./assets/atas-logo-white.png" alt="Atas VC" class="atas-wordmark"></a>
-          <span class="header-divider" aria-hidden="true"></span>
           <h1>M&amp;A Proceeds Simulator</h1>
         </div>
         <div class="header-tools" aria-label="Model actions">
           <label class="preset-control" for="preset-select"><span>scenario</span>
             <select id="preset-select">
+              <option value="airtable">Airtable model</option>
+              <option value="brex">Brex completed deal</option>
               <option value="clean">Clean acquisition</option>
-              <option value="airbnb">Airbnb sample</option>
               <option value="venture">Advanced venture sale</option>
             </select>
           </label>

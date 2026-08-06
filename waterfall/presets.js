@@ -43,7 +43,7 @@ export const PRESETS = {
     meta: {
       preset: "clean",
       title: "Clean acquisition",
-      description: "A straightforward cash acquisition with no preferences, holdbacks, or contingent consideration.",
+      description: "A cash acquisition with no preferences, holdbacks or contingent consideration.",
       asOf: "Illustrative",
       sources: [],
     },
@@ -66,67 +66,103 @@ export const PRESETS = {
       cleanHolder({ id: "investors", name: "Investors", securityType: "common", shares: 20_000_000 }),
     ],
   },
-  airbnb: {
+  airtable: {
     meta: {
-      preset: "airbnb",
-      title: "Airbnb — $190/share acquisition (illustrative)",
-      description: "A hypothetical 75% cash / 25% buyer-stock acquisition. Capitalization and balance-sheet inputs are public facts; offer price, premium, and consideration mix are editable assumptions.",
-      asOf: "Balance sheet and awards: Mar 31, 2026 • beneficial ownership: Apr 8, 2026 • basic shares: Apr 17, 2026 • market reference: Aug 6, 2026. Model assumes one-for-one economic treatment of Class A and B common, all RSUs included at offer value, and options net-settled at the disclosed weighted-average strike. Actual vesting, acceleration, withholding, election proration, stock-price collars and closing adjustments may differ.",
+      preset: "airtable",
+      title: "Airtable: modeled $8.0B acquisition",
+      description: "A clean cash acquisition anchored to Airtable's disclosed 2021 financing. The purchase price, cash balance, ownership, option pool and strike price are model assumptions.",
+      asOf: "Disclosed: $735M Series F at an $11B pre-money valuation in December 2021; $1.36B total funding. Modeled: $7.5B enterprise value, $500M cash, no debt, 100M fully diluted units and 0x liquidation preferences.",
       sources: [
         {
-          label: "Airbnb Q1 2026 Form 10-Q",
-          url: "https://www.sec.gov/Archives/edgar/data/1559720/000155972026000014/abnb-20260331.htm",
-          note: "$12.005B cash and short-term investments, $2.5B senior notes, 593.505M external Class A/B shares, 39.6M RSUs, and 5.7M options at a $110.54 weighted-average strike.",
+          label: "Airtable Series F announcement",
+          url: "https://www.airtable.com/newsroom/series-f",
+          note: "Airtable disclosed a $735M Series F at an $11B pre-money valuation and $1.36B of total funding on December 13, 2021.",
         },
         {
-          label: "Airbnb 2026 proxy statement",
-          url: "https://fintel.io/doc/sec-airbnb-inc-1559720-def-14a-2026-april-24-20567-8998",
-          note: "Named positions are beneficial-ownership figures. Founder totals exclude options and RSUs separately modeled; the residual reconciles to April 17 basic shares.",
-        },
-        {
-          label: "ABNB market reference",
-          url: "https://finance.yahoo.com/quote/ABNB/",
-          note: "$151.78 intraday reference on August 6, 2026; the $190.00 offer and 25.18% premium are hypothetical.",
+          label: "Airtable company facts",
+          url: "https://www.airtable.com/about",
+          note: "Airtable identifies Howie Liu, Andrew Ofstad and Emmett Nicholas as co-founders and reports $1.36B of total funding. It does not disclose a current cap table or cash balance.",
         },
       ],
     },
     deal: {
-      name: "Airbnb, Inc.",
-      enterpriseValue: 111_237_857_370,
-      cash: 12_005_000_000,
-      debt: 2_500_000_000,
+      name: "Airtable, Inc. (modeled)",
+      enterpriseValue: 7_500_000_000,
+      cash: 500_000_000,
+      debt: 0,
       debtLike: 0,
       workingCapital: 0,
       transactionFees: 0,
       bonuses: 0,
       transferTaxes: 0,
       otherAdjustment: 0,
-      discountRate: 10,
+      discountRate: 12,
+    },
+    tranches: zeroTranches(),
+    stakeholders: [
+      cleanHolder({ id: "howie", name: "Howie Liu (modeled)", securityType: "common", shares: 10_000_000 }),
+      cleanHolder({ id: "andrew", name: "Andrew Ofstad (modeled)", securityType: "common", shares: 5_000_000 }),
+      cleanHolder({ id: "emmett", name: "Emmett Nicholas (modeled)", securityType: "common", shares: 5_000_000 }),
+      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", securityType: "rsu", shares: 22_000_000 }),
+      cleanHolder({ id: "options", name: "Employee option pool (modeled)", securityType: "option", shares: 8_000_000, strike: 2, escrowEligible: false, deferredEligible: false }),
+      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", securityType: "common", shares: 22_000_000 }),
+      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", securityType: "common", shares: 28_000_000 }),
+    ],
+  },
+  brex: {
+    meta: {
+      preset: "brex",
+      title: "Brex: completed acquisition",
+      description: "Capital One's completed cash-and-stock acquisition using disclosed closing consideration. The holder ownership and option inputs are modeled because Brex's full cap table is not public.",
+      asOf: "Disclosed at closing on April 7, 2026: about $2.56B cash plus 10.65M Capital One shares valued near $1.9B, or about $4.46B total consideration before post-closing adjustments. Modeled: 100M fully diluted Brex units, a $3 option strike and 0x liquidation preferences.",
+      sources: [
+        {
+          label: "Capital One closing Form 8-K",
+          url: "https://www.sec.gov/Archives/edgar/data/927628/000119312526145764/d85207d8k.htm",
+          note: "Capital One disclosed about $2.56B of cash and 10,646,306 Capital One shares at closing, subject to a customary post-closing adjustment.",
+        },
+        {
+          label: "Capital One acquisition announcement",
+          url: "https://www.capitalone.com/about/newsroom/capital-one-to-acquire-brex/",
+          note: "The January 22, 2026 announcement valued the transaction at $5.15B in a combination of stock and cash.",
+        },
+        {
+          label: "Brex Series D-2 announcement",
+          url: "https://www.brex.com/journal/welcoming-karan-and-our-series-d-2-round",
+          note: "Brex disclosed a $300M Series D-2 at a $12.3B valuation. This financing reference does not disclose the closing cap table used by the merger.",
+        },
+      ],
+    },
+    deal: {
+      name: "Brex / Capital One",
+      enterpriseValue: 4_460_000_000,
+      cash: 0,
+      debt: 0,
+      debtLike: 0,
+      workingCapital: 0,
+      transactionFees: 0,
+      bonuses: 0,
+      transferTaxes: 0,
+      otherAdjustment: 0,
+      discountRate: 12,
     },
     tranches: [
-      { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 30_185_714_343, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
-      { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 0, treatment: "included", eligibility: "escrow", expectedPercent: 99, years: 0.25 },
-      { id: "indemnity-escrow", label: "Indemnity escrow / holdback", type: "escrow", amount: 0, treatment: "included", eligibility: "escrow", expectedPercent: 95, years: 1.5 },
-      { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 0, treatment: "included", eligibility: "escrow", expectedPercent: 80, years: 2 },
-      { id: "seller-note", label: "Seller note", type: "note", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 95, years: 2 },
-      { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 50, years: 2 },
-      { id: "rollover", label: "Rollover equity", type: "rollover", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 85, years: 4 },
+      { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_900_000_000, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
+      ...zeroTranches().slice(1),
     ],
     stakeholders: [
-      cleanHolder({ id: "chesky", name: "Brian Chesky", securityType: "common", shares: 66_702_326 }),
-      cleanHolder({ id: "blecharczyk", name: "Nathan Blecharczyk", securityType: "common", shares: 61_130_011 }),
-      cleanHolder({ id: "gebbia", name: "Joseph Gebbia", securityType: "common", shares: 34_739_995 }),
-      cleanHolder({ id: "sequoia", name: "Sequoia affiliates", securityType: "common", shares: 17_829_874 }),
-      cleanHolder({ id: "vanguard", name: "Vanguard", securityType: "common", shares: 38_295_288 }),
-      cleanHolder({ id: "other-holders", name: "Other Class A & B holders", securityType: "common", shares: 374_807_429 }),
-      cleanHolder({ id: "rsus", name: "Outstanding RSUs", securityType: "rsu", shares: 39_600_000 }),
-      cleanHolder({ id: "options", name: "Outstanding options", securityType: "option", shares: 5_700_000, strike: 110.54, escrowEligible: false, deferredEligible: false }),
+      cleanHolder({ id: "henrique", name: "Henrique Dubugras (modeled)", securityType: "common", shares: 12_000_000 }),
+      cleanHolder({ id: "pedro", name: "Pedro Franceschi (modeled)", securityType: "common", shares: 12_000_000 }),
+      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", securityType: "rsu", shares: 20_000_000 }),
+      cleanHolder({ id: "options", name: "Employee option pool (modeled)", securityType: "option", shares: 8_000_000, strike: 3, escrowEligible: false, deferredEligible: false }),
+      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", securityType: "common", shares: 22_000_000 }),
+      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", securityType: "common", shares: 26_000_000 }),
     ],
   },
   venture: {
     meta: {
       preset: "venture",
-      title: "Venture-backed sale — advanced terms",
+      title: "Venture-backed sale: advanced terms",
       description: "An illustrative preference stack with pari passu classes, participation, a down-round ratchet, escrows and an earnout.",
       asOf: "Illustrative",
       sources: [],
@@ -165,8 +201,8 @@ export const PRESETS = {
   },
 };
 
-export function clonePreset(name = "clean") {
-  return structuredClone(PRESETS[name] || PRESETS.clean);
+export function clonePreset(name = "airtable") {
+  return structuredClone(PRESETS[name] || PRESETS.airtable);
 }
 
 export function blankStakeholder(id) {

@@ -1,7 +1,7 @@
 import { allocateConsideration, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js";
 import { PRESETS, blankStakeholder, blankTranche, clonePreset } from "./presets.js";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v2";
+const STORAGE_KEY = "tiki-exit-waterfall-v3";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -12,13 +12,13 @@ const methodsContent = document.querySelector("#methods-content");
 const sourcesContent = document.querySelector("#sources-content");
 
 const GENERAL_SOURCES = [
-  { label: "Wilson Sonsini — venture financing fundamentals", url: "https://www.wsgr.com/email/college-for-clients-series/2024/VC-Financing/PPT-2024-C4C-VC-Financing-Fundamentals.pdf", note: "Liquidation preference, participation, conversion and anti-dilution mechanics." },
-  { label: "Y Combinator — SAFE user guide", url: "https://bookface-static.ycombinator.com/assets/ycdc/SAFE%20User%20Guide-a47c6588327d73aa2799e61ed7c2cae9f1a0ee9acfa9c43b62039dc06e715832.pdf", note: "SAFE capitalization and liquidity-event treatment." },
-  { label: "NVCA — model legal documents", url: "https://nvca.org/model-legal-documents/", note: "Market-standard venture financing document framework." },
-  { label: "SRS Acquiom — 2025 M&A terms study", url: "https://media.taftlaw.com/wp-content/uploads/2025/04/15175412/2025-SRS-Acquiom-MA-Deal-Terms-Study-2-page-quick-reference.pdf", note: "Market context for consideration mix, escrows, earnouts and option treatment." },
+  { label: "Wilson Sonsini: venture financing fundamentals", url: "https://www.wsgr.com/email/college-for-clients-series/2024/VC-Financing/PPT-2024-C4C-VC-Financing-Fundamentals.pdf", note: "Liquidation preference, participation, conversion and anti-dilution mechanics." },
+  { label: "Y Combinator: SAFE user guide", url: "https://bookface-static.ycombinator.com/assets/ycdc/SAFE%20User%20Guide-a47c6588327d73aa2799e61ed7c2cae9f1a0ee9acfa9c43b62039dc06e715832.pdf", note: "SAFE capitalization and liquidity-event treatment." },
+  { label: "NVCA: model legal documents", url: "https://nvca.org/model-legal-documents/", note: "Venture financing document framework." },
+  { label: "SRS Acquiom: 2025 M&A terms study", url: "https://media.taftlaw.com/wp-content/uploads/2025/04/15175412/2025-SRS-Acquiom-MA-Deal-Terms-Study-2-page-quick-reference.pdf", note: "Market context for consideration mix, escrows, earnouts and option treatment." },
 ];
 
-let state = loadSavedState() || clonePreset("clean");
+let state = loadSavedState() || clonePreset("airtable");
 let activeInputTab = "deal";
 
 const dealFields = [
@@ -49,7 +49,7 @@ function saveState() {
 }
 
 function renderAll() {
-  presetSelect.value = state.meta?.preset in PRESETS ? state.meta.preset : "clean";
+  presetSelect.value = state.meta?.preset in PRESETS ? state.meta.preset : "airtable";
   document.querySelectorAll(".input-tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === activeInputTab));
   renderControls();
   renderResults();
@@ -178,7 +178,7 @@ function renderResults() {
   const totalExpected = rows.reduce((sum, row) => sum + row.timing.expectedPresentValue, 0);
   const warnings = buildWarnings(bridge, waterfall, consideration);
   resultsContent.innerHTML = `
-    <header class="result-header"><div><span class="kicker">live proceeds model</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div><span class="model-badge">${escapeHtml(state.meta?.title || "custom model")}</span></header>
+    <header class="result-header"><div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div></header>
     ${warnings.length ? `<div class="alerts">${warnings.map((warning) => `<div class="alert ${warning.tone || ""}">${escapeHtml(warning.text)}</div>`).join("")}</div>` : ""}
     <section class="metrics" aria-label="Transaction summary">
       ${metric("gross waterfall value", formatMoney(grossProceeds), true)}
@@ -292,16 +292,16 @@ function renderDialogs() {
   methodsContent.innerHTML = `<div class="explainers">
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
     ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. Tier 1 pays first; claims sharing a tier split an underfunded pool pro rata by claim amount.` : "No liquidation preference claim is active. Eligible common equivalents share residual value.")}
-    ${explainer("Conversion elections", waterfall.stableElection ? "The model evaluates every preference/conversion combination for up to 12 elective classes. A class takes preference only when converting would not improve its payout with the other elections held fixed." : "No fully stable election set was found. The displayed lowest-regret election set requires transaction-document review.")}
+    ${explainer("Conversion elections", waterfall.stableElection ? "The solver evaluates up to 4,096 preference and conversion combinations for 12 elective classes. A class takes preference when conversion would not improve its payout with the other elections held fixed." : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
     ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple. A class may split claims across two priority tiers.")}
     ${explainer("Ratchets and dividends", "Full ratchet resets the conversion price to the down-round price. Weighted average uses CP2 = CP1 × (A + B) / (A + C). Fixed, simple or compounded cumulative dividends can increase preference; prior payments and waivers reduce it.")}
     ${explainer("Options, warrants and vesting", "Eligible options and warrants receive the positive spread between implied common value and strike. The eligible percentage can model vesting, acceleration, forfeiture or a negotiated cash-out subset.")}
     ${explainer("Consideration timing", "Stock, escrow, notes, earnouts and rollover replace cash at close for eligible holders. Probability and timing drive expected present value. Incremental tranches add to total proceeds; included tranches only change form or timing.")}
-    ${explainer("Calculation boundary", "This deterministic model reconciles contractual economic claims; it does not determine tax withholding, appraisal rights, election proration, stock-price collars, bespoke charter interpretation or legal enforceability.")}
-  </div><p class="disclaimer">Illustrative modeling only. Confirm every mechanic against the charter, financing documents, equity plan, merger agreement and final closing funds-flow memorandum.</p>`;
+    ${explainer("Calculation boundary", "Ask deal counsel and tax advisers to model withholding, appraisal rights, election proration, collars, charter interpretation and enforceability.")}
+  </div><p class="disclaimer">Illustrative modeling only. Confirm each mechanic against the charter, financing documents, equity plan, merger agreement and final closing funds-flow memorandum.</p>`;
 
   const sources = [...(state.meta?.sources || []), ...GENERAL_SOURCES];
-  sourcesContent.innerHTML = `<div class="explainers">${state.meta?.asOf ? explainer("Preset dating", escapeHtml(state.meta.asOf)) : ""}${sources.map((source) => `<div class="explainer"><h3><a href="${escapeAttribute(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.label)} ↗</a></h3><p>${escapeHtml(source.note)}</p></div>`).join("")}</div><p class="disclaimer">Public facts and hypothetical transaction assumptions are labeled separately. Market references are point-in-time inputs, not current valuations or investment recommendations.</p>`;
+  sourcesContent.innerHTML = `<div class="explainers">${state.meta?.asOf ? explainer("Preset dating", escapeHtml(state.meta.asOf)) : ""}${sources.map((source) => `<div class="explainer"><h3><a href="${escapeAttribute(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.label)} ↗</a></h3><p>${escapeHtml(source.note)}</p></div>`).join("")}</div><p class="disclaimer">Public facts and modeled transaction inputs are labeled separately. Market references are historical snapshots. Use current data for valuation decisions.</p>`;
 }
 
 function explainer(title, body) {

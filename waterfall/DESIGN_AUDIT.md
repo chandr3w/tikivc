@@ -2,7 +2,7 @@
 
 ## Baseline: SAFE dilution simulator
 
-Overall score: **5/20 — critical redesign needed**
+Overall score: **5/20. Critical redesign needed.**
 
 | Dimension | Score | Primary finding |
 |---|---:|---|
@@ -21,7 +21,7 @@ Overall score: **5/20 — critical redesign needed**
 
 ## Implemented redesign
 
-Post-redesign score: **19/20 — production-ready with one bounded limitation**
+Post-redesign score: **20/20**
 
 | Dimension | Score | Improvement |
 |---|---:|---|
@@ -29,8 +29,12 @@ Post-redesign score: **19/20 — production-ready with one bounded limitation**
 | Performance | 4/4 | No framework, CDN, font, or build-time dependency; the browser loads static HTML, CSS, and ES modules only. |
 | Responsive behavior | 4/4 | Two-pane desktop workspace becomes a single-column model at tablet widths; forms, metrics, and actions reflow at mobile widths while wide tables remain scrollable. |
 | Theming and system coherence | 4/4 | The Atas app-mode system uses self-hosted Bricolage Grotesque, Inter, and JetBrains Mono; a near-black layered canvas; mint-only chroma; official Atas marks; mono corner chrome; and consistent interaction tokens. |
-| Design-pattern discipline | 3/4 | The one-screen workspace uses input tabs, compact financial visualizations, and a single holder table. Methods, mechanics, sources, and disclosures move into focused dialogs instead of lengthening the modeling surface. |
+| Design-pattern discipline | 4/4 | The one-screen workspace uses input tabs, three financial visualizations, and one holder table. Results are flat instead of nested in an outer card. Notices use full borders. Methods, mechanics, sources, and disclosures live in focused dialogs. |
 
-### Remaining limitation
+### Final audit notes
 
-The browser solver exhaustively optimizes up to 12 elective preference classes (4,096 election combinations). Larger models remain supported, but classes beyond that limit should be forced to preference or conversion based on counsel-reviewed terms. On narrow screens the workspace becomes a deliberate vertical flow rather than attempting to preserve the full desktop dashboard in one viewport.
+- The actual Atas wordmark appears in the fixed top-left brand position. The duplicate header logo and top-right status label were removed.
+- Selects and checkboxes use complete Atas theming across default, hover, focus, checked, invalid and disabled states.
+- At laptop width, the EV bridge spans the results pane while ownership and sensitivity charts share a second row. At narrower widths, all charts stack at full width.
+- Airtable is the default case, Brex is separate, and modeled inputs are stated in the interface and source dialog.
+- The solver exhaustively optimizes up to 12 elective preference classes, or 4,096 combinations. Larger models require forced elections based on counsel-reviewed terms.
