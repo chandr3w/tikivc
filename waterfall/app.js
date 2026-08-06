@@ -1,7 +1,7 @@
-import { allocateConsideration, applySharedTerms, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=8";
-import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=8";
+import { allocateConsideration, applySharedTerms, computeEquityBridge, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=10";
+import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=10";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v8";
+const STORAGE_KEY = "tiki-exit-waterfall-v10";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -250,10 +250,13 @@ function renderIndividualTerms(holder, index, preferenceSecurity) {
 }
 
 function renderPeopleControls() {
+  const presetNote = state.meta?.preset === "brex"
+    ? "Brex's actual 409A history is not public. Cohort strikes are modeled from disclosed financing valuations and are separate from Airtable's reported 409A marks."
+    : "No public Airtable employee carveout, retention package or acceleration terms were disclosed. Historical 409A marks anchor the option strikes.";
   return `
     <div class="panel-heading"><div><span class="kicker">employee protection</span><h2>Employee cohorts</h2></div><span class="panel-total">${state.peopleCohorts.length} cohorts</span></div>
     <p class="panel-note">Founder ownership is modeled in Securities. These rows compare employee grants by entry stage and separately model vesting, acceleration, a closing bonus and post-close retention.</p>
-    <div class="assumption-note"><strong>Airtable base case</strong><span>No public employee carveout, retention package or acceleration terms were disclosed. Each therefore defaults to zero; historical 409A marks anchor the option strikes.</span></div>
+    <div class="assumption-note"><strong>${state.meta?.preset === "brex" ? "Brex base case" : "Airtable base case"}</strong><span>${escapeHtml(presetNote)}</span></div>
     ${state.peopleCohorts.map(renderPeopleEditor).join("")}
     <button class="button add-row" type="button" data-action="add-cohort">add entry cohort</button>`;
 }
@@ -267,6 +270,7 @@ function renderPeopleEditor(cohort, index) {
       ${selectField(index, "cohort", "equityType", "Equity type", cohort.equityType, [["common","Common stock"],["option","Employee options"]])}
       ${indexedField(index, "cohort", "grantShares", "Grant shares", cohort.grantShares, "shares")}
       ${indexedField(index, "cohort", "strike", cohort.equityType === "common" ? "Cost basis / share" : "Strike / share", cohort.strike, "number")}
+      ${cohort.equityType === "option" ? indexedCohortBooleanField(index, "alreadyExercised", "Options already exercised", cohort.alreadyExercised) : ""}
       ${indexedField(index, "cohort", "eligiblePercent", "Vested at close", cohort.eligiblePercent, "percent")}
       ${indexedField(index, "cohort", "accelerationPercent", "Unvested shares accelerated", cohort.accelerationPercent, "percent")}
       ${indexedField(index, "cohort", "transactionBonus", "Closing / carveout bonus", cohort.transactionBonus, "money")}
@@ -372,30 +376,17 @@ function renderInvestorOutcomes(rows, waterfall, total) {
 }
 
 function renderPeopleOutcomes(rows, pricePerShare) {
-  const cohorts = state.peopleCohorts.map((cohort) => {
-    const grantShares = Math.max(0, number(cohort.grantShares));
-    const vestedShares = grantShares * Math.max(0, Math.min(100, number(cohort.eligiblePercent))) / 100;
-    const acceleratedShares = (grantShares - vestedShares) * Math.max(0, Math.min(100, number(cohort.accelerationPercent))) / 100;
-    const eligibleShares = vestedShares + acceleratedShares;
-    const exerciseCost = eligibleShares * Math.max(0, number(cohort.strike));
-    const grossValue = eligibleShares * Math.max(0, number(pricePerShare));
-    const equityProceeds = Math.max(0, grossValue - exerciseCost);
-    const transactionBonus = Math.max(0, number(cohort.transactionBonus));
-    const retentionBonus = Math.max(0, number(cohort.retentionBonus));
-    const retentionYears = Math.max(0, number(cohort.retentionYears));
-    const retentionPresentValue = retentionBonus / ((1 + Math.max(0, number(state.deal.discountRate)) / 100) ** retentionYears);
-    const expectedValue = equityProceeds + transactionBonus + retentionPresentValue;
-    return { ...cohort, vestedShares, acceleratedShares, eligibleShares, exerciseCost, grossValue, equityProceeds, transactionBonus, retentionBonus, retentionPresentValue, expectedValue };
-  });
+  const cohorts = state.peopleCohorts.map((cohort) => computePeopleCohortOutcome(cohort, pricePerShare, state.deal.discountRate));
   const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
-  const scaleMax = Math.max(1, ...cohorts.flatMap((item) => [item.exerciseCost, item.expectedValue]));
+  const scaleMax = Math.max(1, ...cohorts.flatMap((item) => [item.initialInvestment, item.expectedValue]));
   const rowsHtml = cohorts.map((item, index) => {
-    const multiple = item.exerciseCost > 0 ? `${number(item.expectedValue / item.exerciseCost).toFixed(2)}× expected / cost` : "no exercise cost";
-    const initialWidth = item.exerciseCost / scaleMax * 100;
+    const multiple = item.alreadyExercised && item.exerciseCost > 0 ? `${number(item.expectedValue / item.exerciseCost).toFixed(2)}× total / cost` : "unexercised · cashless spread";
+    const initialWidth = item.initialInvestment / scaleMax * 100;
     const exitWidth = item.expectedValue / scaleMax * 100;
-    return `<div class="class-compare-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(seriesLabel(item.entryStage))}</strong><small>${escapeHtml(multiple)}</small></span></div><div class="compare-value initial"><div class="compare-label"><span>exercise cost</span><strong>${formatMoney(item.exerciseCost)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${initialWidth}%"></span></div></div><div class="compare-value exit"><div class="compare-label"><span>expected value</span><strong>${formatMoney(item.expectedValue)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${exitWidth}%"></span></div></div></div>`;
+    const cohortLabel = String(item.label || seriesLabel(item.entryStage)).replace(/^Employee joining (?:at |in )/, "");
+    return `<div class="class-compare-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(cohortLabel)}</strong><small>${escapeHtml(multiple)}</small></span></div><div class="compare-value initial"><div class="compare-label"><span>${item.alreadyExercised ? "cost basis" : "cash paid"}</span><strong>${formatMoney(item.initialInvestment)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${initialWidth}%"></span></div></div><div class="compare-value exit"><div class="compare-label"><span>holder proceeds</span><strong>${formatMoney(item.expectedValue)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${exitWidth}%"></span></div></div></div>`;
   }).join("");
-  return `${renderCommonOwnershipOutcomes(rows, pricePerShare)}<section class="viz-panel class-panel outcome-panel" aria-labelledby="people-chart-title"><div class="viz-heading"><div><span class="section-label">employee equity by entry stage</span><h3 id="people-chart-title">Exercise cost vs expected value</h3></div><p>${formatPrice(pricePerShare)} common value / share · normalized 100K grants</p></div><div class="class-comparison" role="img" aria-label="Employee entry-stage exit comparisons">${rowsHtml || `<p class="empty-state">Add an employee cohort to calculate outcomes.</p>`}</div></section>${renderPeopleTable(cohorts, pricePerShare)}`;
+  return `${renderCommonOwnershipOutcomes(rows, pricePerShare)}<section class="viz-panel class-panel outcome-panel" aria-labelledby="people-chart-title"><div class="viz-heading"><div><span class="section-label">employee equity by entry stage</span><h3 id="people-chart-title">Cost basis vs holder proceeds</h3></div><p>${formatPrice(pricePerShare)} common value / share · normalized 100K grants</p></div><div class="class-comparison" role="img" aria-label="Employee entry-stage exit comparisons">${rowsHtml || `<p class="empty-state">Add an employee cohort to calculate outcomes.</p>`}</div></section>${renderPeopleTable(cohorts, pricePerShare)}`;
 }
 
 function renderCommonOwnershipOutcomes(rows, pricePerShare) {
@@ -429,11 +420,13 @@ function renderInvestorTable(investors, waterfall, total) {
 
 function renderPeopleTable(cohorts, pricePerShare) {
   const rowsHtml = cohorts.map((item) => {
-    const inTheMoney = number(pricePerShare) > number(item.strike);
+    const inTheMoney = number(pricePerShare) >= number(item.strike);
     const protection = item.transactionBonus + item.retentionPresentValue;
-    return `<tr><td><strong>${escapeHtml(item.label)}</strong><span class="subtext">${escapeHtml(seriesLabel(item.entryStage))} · ${formatPercent(item.eligiblePercent / 100)} vested${item.acceleratedShares > 0 ? ` · ${formatShares(item.acceleratedShares)} accelerated` : ""}</span></td><td class="money">${formatShares(item.eligibleShares)}</td><td class="money">${formatPrice(item.strike)}</td><td class="money">${formatMoney(item.equityProceeds)}</td><td class="money">${formatMoney(protection)}</td><td class="money">${formatMoney(item.expectedValue)}</td><td><strong class="${inTheMoney ? "positive" : "negative"}">${inTheMoney ? "in the money" : "underwater"}</strong></td></tr>`;
+    const treatment = item.alreadyExercised ? (item.exerciseCost > 0 ? `${number(item.equityProceeds / item.exerciseCost).toFixed(2)}× equity / cost` : "common stock") : (inTheMoney ? "cashless spread" : "underwater option");
+    const positiveTreatment = item.alreadyExercised ? item.equityProceeds >= item.exerciseCost : inTheMoney;
+    return `<tr><td><strong>${escapeHtml(item.label)}</strong><span class="subtext">${escapeHtml(seriesLabel(item.entryStage))} · ${formatPercent(item.eligiblePercent / 100)} vested${item.acceleratedShares > 0 ? ` · ${formatShares(item.acceleratedShares)} accelerated` : ""}</span></td><td class="money">${formatShares(item.eligibleShares)}</td><td class="money">${formatPrice(item.strike)}</td><td class="money">${formatMoney(item.initialInvestment)}</td><td class="money">${formatMoney(item.equityProceeds)}</td><td class="money">${formatMoney(protection)}</td><td class="money">${formatMoney(item.expectedValue)}</td><td><strong class="${positiveTreatment ? "positive" : "negative"}">${escapeHtml(treatment)}</strong></td></tr>`;
   }).join("");
-  return `<section class="payout-section" aria-labelledby="people-table-title"><div class="table-heading"><div><span class="section-label">employee cohort detail</span><h3 id="people-table-title">Equity and negotiated protection</h3></div><p>retention is probability-unadjusted and discounted · taxes excluded</p></div><div class="table-wrap"><table><thead><tr><th>entry cohort</th><th>eligible shares</th><th>strike</th><th>equity proceeds</th><th>bonus / retention PV</th><th>expected value</th><th>status</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></section>`;
+  return `<section class="payout-section" aria-labelledby="people-table-title"><div class="table-heading"><div><span class="section-label">employee cohort detail</span><h3 id="people-table-title">Equity and negotiated protection</h3></div><p>exercised shares receive gross common proceeds · taxes excluded</p></div><div class="table-wrap"><table><thead><tr><th>entry cohort</th><th>eligible shares</th><th>strike</th><th>cost basis</th><th>equity proceeds</th><th>bonus / retention PV</th><th>expected value</th><th>treatment</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></section>`;
 }
 
 function renderDialogs() {
@@ -450,7 +443,8 @@ function renderDialogs() {
     ${explainer("Conversion elections", waterfall.stableElection ? "The solver evaluates up to 4,096 preference and conversion combinations for 12 elective classes. A class takes preference when conversion would not improve its payout with the other elections held fixed." : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
     ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple. A class may split claims across two priority tiers.")}
     ${explainer("Ratchets and dividends", "Full ratchet resets the conversion price to the down-round price. Weighted average uses CP2 = CP1 × (A + B) / (A + C). Fixed, simple or compounded cumulative dividends can increase preference; prior payments and waivers reduce it.")}
-    ${explainer("Options, warrants and vesting", "Options and warrants receive only the positive spread between implied common value and strike. Vested shares are eligible at close; the acceleration input separately converts a percentage of unvested shares into eligible shares.")}
+    ${explainer("Exercised versus unexercised options", "Once an option has been exercised, the holder owns common stock: cost basis is the strike paid and sale proceeds equal the full common value. An unexercised option normally receives only the positive spread over strike, often through a cashless settlement. A 1× floor is not contractual, but an exercised share exits above 1× whenever common value exceeds its strike basis.")}
+    ${explainer("Options, warrants and vesting", "Vested shares are eligible at close; the acceleration input separately converts a percentage of unvested shares into eligible shares. Underwater unexercised options may be cancelled for no consideration unless the governing documents provide otherwise.")}
     ${explainer("Consideration timing", "Stock, escrow, notes, earnouts and rollover replace cash at close for eligible holders. Probability and timing drive expected present value. Incremental tranches add to total proceeds; included tranches only change form or timing.")}
     ${explainer("Calculation boundary", "Ask deal counsel and tax advisers to model withholding, appraisal rights, election proration, collars, charter interpretation and enforceability.")}
   </div><p class="disclaimer">Illustrative modeling only. Confirm each mechanic against the charter, financing documents, equity plan, merger agreement and final closing funds-flow memorandum.</p>`;
@@ -523,6 +517,10 @@ function booleanField(scope, field, label, checked, disabled = false) {
 
 function indexedBooleanField(index, field, label, checked, disabled = false) {
   return `<label class="check-field"><input type="checkbox" data-scope="stakeholder" data-index="${index}" data-field="${field}" data-value-type="boolean" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${escapeHtml(label)}</span></label>`;
+}
+
+function indexedCohortBooleanField(index, field, label, checked, disabled = false) {
+  return `<label class="check-field"><input type="checkbox" data-scope="cohort" data-index="${index}" data-field="${field}" data-value-type="boolean" ${checked ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${escapeHtml(label)}</span></label>`;
 }
 
 function metric(label, value, primary = false) {

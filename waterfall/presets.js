@@ -59,14 +59,25 @@ const cleanHolder = (holder) => {
 const numberValue = (value) => Number.isFinite(Number(value)) ? Number(value) : 0;
 
 const standardPeopleCohorts = () => [
-  { id: "seed-employee", label: "Employee joining at Seed", entryStage: "seed", equityType: "option", grantShares: 100_000, strike: 0.12, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "series-a-employee", label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0.43, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "series-b-employee", label: "Employee joining at Series B", entryStage: "series-b", equityType: "option", grantShares: 100_000, strike: 1.14, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "series-c-employee", label: "Employee joining at Series C", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 1.14, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "series-d-employee", label: "Employee joining at Series D", entryStage: "series-d", equityType: "option", grantShares: 100_000, strike: 18.90, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "series-e-employee", label: "Employee joining at Series E", entryStage: "series-e", equityType: "option", grantShares: 100_000, strike: 32.79, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "series-f-employee", label: "Employee joining at Series F", entryStage: "series-f", equityType: "option", grantShares: 100_000, strike: 32.79, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "growth-employee", label: "Employee joining in 2023+", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 62.64, eligiblePercent: 75, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "seed-employee", label: "Employee joining at Seed", entryStage: "seed", equityType: "option", grantShares: 100_000, strike: 0.12, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "series-a-employee", label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0.43, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "series-b-employee", label: "Employee joining at Series B", entryStage: "series-b", equityType: "option", grantShares: 100_000, strike: 1.14, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "series-c-employee", label: "Employee joining at Series C", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 1.14, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "series-d-employee", label: "Employee joining at Series D", entryStage: "series-d", equityType: "option", grantShares: 100_000, strike: 18.90, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "series-e-employee", label: "Employee joining at Series E", entryStage: "series-e", equityType: "option", grantShares: 100_000, strike: 32.79, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "series-f-employee", label: "Employee joining at Series F", entryStage: "series-f", equityType: "option", grantShares: 100_000, strike: 32.79, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "growth-employee", label: "Employee joining in 2023+", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 62.64, eligiblePercent: 75, alreadyExercised: false, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+];
+
+const brexPeopleCohorts = () => [
+  { id: "brex-series-a-employee", label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0.10, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-b-employee", label: "Employee joining at Series B", entryStage: "series-b", equityType: "option", grantShares: 100_000, strike: 0.50, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-c-employee", label: "Employee joining at Series C", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 3.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-c2-employee", label: "Employee joining at Series C-2", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 6.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-2020-employee", label: "Employee joining in 2020", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 7.50, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-d-employee", label: "Employee joining at Series D", entryStage: "series-d", equityType: "option", grantShares: 100_000, strike: 18.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-d2-employee", label: "Employee joining at Series D-2", entryStage: "series-e", equityType: "option", grantShares: 100_000, strike: 30.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-2023-employee", label: "Employee joining in 2023+", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 20.00, eligiblePercent: 75, alreadyExercised: false, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
 ];
 
 const sharedTerms = (overrides = {}) => ({
@@ -241,8 +252,8 @@ export const PRESETS = {
     meta: {
       preset: "brex",
       title: "Brex: completed acquisition",
-      description: "Capital One's completed cash-and-stock acquisition using disclosed closing consideration. The holder ownership and option inputs are modeled because Brex's full cap table is not public.",
-      asOf: "Disclosed at closing on April 7, 2026: about $2.56B cash plus 10.65M Capital One shares valued near $1.9B, or about $4.46B total consideration before post-closing adjustments. Modeled: 100M fully diluted Brex units, a $3 option strike and 0x liquidation preferences.",
+      description: "Capital One's completed cash-and-stock acquisition using disclosed closing consideration, with a Brex-specific employee cohort model and separate exercised-share versus unexercised-option treatment.",
+      asOf: "Disclosed at closing on April 7, 2026: about $2.56B cash plus 10.65M Capital One shares valued near $1.9B, or about $4.46B total consideration before post-closing adjustments. Modeled: 100M fully diluted Brex units, 0x liquidation preferences and employee strike estimates informed by Brex's disclosed financing valuations. Brex's actual 409A history and option-by-option merger treatment are not public. Exercised cohorts receive full common proceeds; unexercised cohorts receive only positive spread over strike.",
       sources: [
         {
           label: "Capital One closing Form 8-K",
@@ -258,6 +269,16 @@ export const PRESETS = {
           label: "Brex Series D-2 announcement",
           url: "https://www.brex.com/journal/welcoming-karan-and-our-series-d-2-round",
           note: "Brex disclosed a $300M Series D-2 at a $12.3B valuation. This financing reference does not disclose the closing cap table used by the merger.",
+        },
+        {
+          label: "TechCrunch: Brex financing history",
+          url: "https://techcrunch.com/2019/06/11/brex-series-c2/",
+          note: "Reports Brex's $25M Series A valuation, $220M Series B valuation and later financing history used to anchor the modeled early employee strike schedule.",
+        },
+        {
+          label: "Capital One Brex resale prospectus",
+          url: "https://investor.capitalone.com/static-files/163aa15d-01e1-4406-8eec-36221d67bba3",
+          note: "Registers Capital One shares issued as partial consideration for Brex securities. It confirms security-holder stock consideration but does not publicly disclose each employee option's strike or award treatment.",
         },
       ],
     },
@@ -275,7 +296,7 @@ export const PRESETS = {
       discountRate: 12,
     },
     terms: sharedTerms(),
-    peopleCohorts: standardPeopleCohorts(),
+    peopleCohorts: brexPeopleCohorts(),
     tranches: [
       { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_900_000_000, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
       ...zeroTranches().slice(1),
@@ -354,7 +375,7 @@ export function blankStakeholder(id) {
 }
 
 export function blankPeopleCohort(id) {
-  return { id, label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0, eligiblePercent: 100, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 };
+  return { id, label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0, eligiblePercent: 100, alreadyExercised: false, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 };
 }
 
 export function blankTranche(id) {

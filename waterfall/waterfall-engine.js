@@ -17,6 +17,27 @@ export function computeEquityBridge(deal) {
   return { rows, rawEquityValue, equityValue: Math.max(0, rawEquityValue) };
 }
 
+export function computePeopleCohortOutcome(cohort, pricePerShare, discountRate = 0) {
+  const grantShares = Math.max(0, number(cohort.grantShares));
+  const vestedPercent = Math.max(0, Math.min(100, number(cohort.eligiblePercent)));
+  const accelerationPercent = Math.max(0, Math.min(100, number(cohort.accelerationPercent)));
+  const vestedShares = grantShares * vestedPercent / 100;
+  const acceleratedShares = (grantShares - vestedShares) * accelerationPercent / 100;
+  const eligibleShares = vestedShares + acceleratedShares;
+  const strike = Math.max(0, number(cohort.strike));
+  const exerciseCost = eligibleShares * strike;
+  const grossValue = eligibleShares * Math.max(0, number(pricePerShare));
+  const alreadyExercised = cohort.equityType === "common" || cohort.alreadyExercised === true;
+  const equityProceeds = alreadyExercised ? grossValue : Math.max(0, grossValue - exerciseCost);
+  const initialInvestment = alreadyExercised ? exerciseCost : 0;
+  const transactionBonus = Math.max(0, number(cohort.transactionBonus));
+  const retentionBonus = Math.max(0, number(cohort.retentionBonus));
+  const retentionYears = Math.max(0, number(cohort.retentionYears));
+  const retentionPresentValue = retentionBonus / ((1 + Math.max(0, number(discountRate)) / 100) ** retentionYears);
+  const expectedValue = equityProceeds + transactionBonus + retentionPresentValue;
+  return { ...cohort, alreadyExercised, vestedShares, acceleratedShares, eligibleShares, exerciseCost, initialInvestment, grossValue, equityProceeds, transactionBonus, retentionBonus, retentionPresentValue, expectedValue };
+}
+
 export function computeWaterfall(stakeholders, proceeds) {
   const normalized = stakeholders.map(normalizeStakeholder);
   const preferred = normalized.filter(isPreferenceSecurity);

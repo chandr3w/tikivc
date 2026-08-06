@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { allocateConsideration, applySharedTerms, computeEquityBridge, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
+import { allocateConsideration, applySharedTerms, computeEquityBridge, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
 import { clonePreset } from "../presets.js";
 
 const common = (id, shares) => ({ id, name: id, securityType: "common", shares, eligiblePercent: 100 });
@@ -214,10 +214,18 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "employee-common").shares, 9_981_692);
   assert.equal(airtable.stakeholders.filter((holder) => ["founder", "employee"].includes(holder.category)).reduce((sum, holder) => sum + holder.shares, 0), 21_981_692);
   assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee").strike, 32.79);
+  assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee").alreadyExercised, true);
   assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "growth-employee").strike, 62.64);
   assert.equal(airtable.peopleCohorts.every((cohort) => cohort.transactionBonus === 0 && cohort.retentionBonus === 0 && cohort.accelerationPercent === 0), true);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-f").seniority, 1);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "seed").seniority, 7);
+  const exercisedSeriesF = computePeopleCohortOutcome(airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee"), result.pricePerShare, airtable.deal.discountRate);
+  const unexercisedSeriesF = computePeopleCohortOutcome({ ...airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee"), alreadyExercised: false }, result.pricePerShare, airtable.deal.discountRate);
+  assert.equal(exercisedSeriesF.exerciseCost, 3_279_000);
+  assert.ok(Math.abs(exercisedSeriesF.equityProceeds - 3_792_511.18) < 0.01);
+  assert.ok(exercisedSeriesF.equityProceeds / exercisedSeriesF.exerciseCost > 1.15);
+  assert.ok(Math.abs(unexercisedSeriesF.equityProceeds - 513_511.18) < 0.01);
+  assert.equal(unexercisedSeriesF.initialInvestment, 0);
 }
 
 {
@@ -232,6 +240,9 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.ok(Math.abs(result.payouts.options - 334_720_000) < 0.01);
   assert.ok(Math.abs(stock - 1_900_000_000) < 0.01);
   assert.ok(Math.abs(cash - 2_560_000_000) < 0.01);
+  assert.equal(brex.peopleCohorts.length, 8);
+  assert.equal(brex.peopleCohorts.find((cohort) => cohort.id === "brex-series-d2-employee").strike, 30);
+  assert.equal(brex.peopleCohorts.find((cohort) => cohort.id === "brex-series-d2-employee").alreadyExercised, true);
   assert.deepEqual([...new Set(brex.stakeholders.map((holder) => holder.className))].sort(), ["Common stock", "Founder common", "Options", "RSUs / restricted stock"]);
 }
 
