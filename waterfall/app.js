@@ -1,7 +1,7 @@
-import { applySharedTerms, comparisonBarWidth, computeEquityBridge, computeExitModel, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=15";
-import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=15";
+import { applySharedTerms, comparisonBarWidth, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=18";
+import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=18";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v15";
+const STORAGE_KEY = "tiki-exit-waterfall-v18";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -18,6 +18,8 @@ const GENERAL_SOURCES = [
   { label: "SRS Acquiom: 2026 M&A deal terms study", url: "https://www.srsacquiom.com/our-insights/deal-terms-study/", note: "Research across more than 2,300 private-target acquisitions informs the modeled transaction assumptions." },
   { label: "SRS Acquiom: escrow and payments trends", url: "https://www.srsacquiom.com/our-insights/ma-escrows-and-payments/", note: "Market reference for RWI retention size, general escrow size and typical 12–18 month duration." },
   { label: "SRS Acquiom: working-capital PPA trends", url: "https://www.srsacquiom.com/our-insights/ma-deals/", note: "Market reference for purchase-price-adjustment prevalence and the roughly 1% median separate PPA escrow." },
+  { label: "SEC-filed updated distribution waterfall", url: "https://www.sec.gov/Archives/edgar/data/1636422/000163642225000028/exhibit21agreementandplano.htm", note: "Primary-source example using an updated cumulative waterfall for adjustments and earnouts, but fixed closing-payment shares for escrow and representative-fund releases." },
+  { label: "SEC-filed preferred-stock charter", url: "https://www.sec.gov/Archives/edgar/data/830656/000083065611000006/ex3-1.pdf", note: "Primary-source example of preferred series sharing an underfunded pari passu tier ahead of common stock." },
 ];
 
 let state = normalizeState(loadSavedState() || clonePreset("airtable"));
@@ -66,35 +68,47 @@ function saveState() {
 function normalizeState(model) {
   const defaults = clonePreset("clean").terms;
   const holderDefaults = blankStakeholder("defaults");
-  const stakeholders = (model.stakeholders || []).map((holder) => ({
-    ...holderDefaults,
-    ...holder,
-    id: holder.id,
-    series: holder.series || inferSeries(holder),
-    roundSize: number(holder.roundSize ?? holder.invested),
-    investorInvestment: number(holder.investorInvestment ?? holder.roundSize ?? holder.invested),
-    invested: number(holder.roundSize ?? holder.invested),
-    useSharedTerms: holder.useSharedTerms !== false,
-    preferenceEnabled: holder.preferenceEnabled ?? number(holder.preferenceMultiple) > 0,
-    optimalConversion: holder.optimalConversion !== false,
-    participatingPreferred: holder.participatingPreferred ?? ["full", "capped"].includes(holder.participation),
-    cappedParticipation: holder.cappedParticipation ?? holder.participation === "capped",
-    cumulativeDividends: holder.cumulativeDividends ?? (holder.dividendType && holder.dividendType !== "none"),
-    antiDilution: holder.antiDilution ?? (holder.ratchetType && holder.ratchetType !== "none"),
-  }));
-  const peopleCohorts = (model.peopleCohorts || []).map((cohort) => ({
-    ...blankPeopleCohort(cohort.id || uniqueId("cohort")),
-    ...cohort,
-    id: cohort.id || uniqueId("cohort"),
-    exercisedPercent: cohort.exercisedPercent ?? (cohort.alreadyExercised === true ? 100 : 0),
-    recoveryFloorMultiple: number(cohort.recoveryFloorMultiple),
-  }));
+  const stakeholderIds = new Set();
+  const stakeholders = (model.stakeholders || []).map((holder) => {
+    const id = ensureUniqueId(holder.id, "holder", stakeholderIds);
+    return {
+      ...holderDefaults,
+      ...holder,
+      id,
+      series: holder.series || inferSeries(holder),
+      roundSize: number(holder.roundSize ?? holder.invested),
+      investorInvestment: number(holder.investorInvestment ?? holder.roundSize ?? holder.invested),
+      invested: number(holder.invested ?? holder.roundSize),
+      useSharedTerms: holder.useSharedTerms !== false,
+      preferenceEnabled: holder.preferenceEnabled ?? number(holder.preferenceMultiple) > 0,
+      optimalConversion: holder.optimalConversion !== false,
+      participatingPreferred: holder.participatingPreferred ?? ["full", "capped"].includes(holder.participation),
+      cappedParticipation: holder.cappedParticipation ?? holder.participation === "capped",
+      cumulativeDividends: holder.cumulativeDividends ?? (holder.dividendType && holder.dividendType !== "none"),
+      antiDilution: holder.antiDilution ?? (holder.ratchetType && holder.ratchetType !== "none"),
+    };
+  });
+  const cohortIds = new Set();
+  const peopleCohorts = (model.peopleCohorts || []).map((cohort) => {
+    const id = ensureUniqueId(cohort.id, "cohort", cohortIds);
+    return {
+      ...blankPeopleCohort(id),
+      ...cohort,
+      id,
+      exercisedPercent: cohort.exercisedPercent ?? (cohort.alreadyExercised === true ? 100 : 0),
+      recoveryFloorMultiple: number(cohort.recoveryFloorMultiple),
+    };
+  });
+  const trancheIds = new Set();
   const tranches = (model.tranches || []).map((tranche) => {
-    const id = tranche.id || uniqueId("tranche");
+    const id = ensureUniqueId(tranche.id, "tranche", trancheIds);
     return {
       ...blankTranche(id),
       ...tranche,
       id,
+      allocationBasis: ["cumulative", "pro-rata"].includes(tranche.allocationBasis)
+        ? tranche.allocationBasis
+        : (tranche.type === "earnout" || tranche.treatment === "incremental" ? "cumulative" : "pro-rata"),
       expectedPercent: tranche.expectedPercent ?? 100,
       years: number(tranche.years),
     };
@@ -150,7 +164,7 @@ function renderDealField([key, label, type, wide = false]) {
 function renderStakeholderControls() {
   return `
     <div class="panel-heading"><div><span class="kicker">priority stack</span><h2>Securities</h2></div><span class="panel-total">${state.stakeholders.length} rows</span></div>
-    <p class="panel-note">Add one row per financing class. Series and seniority organize the stack; total round size drives the class claim, while the modeled check attributes one investor's return.</p>
+    <p class="panel-note">Add one row per financing class. Preference basis drives the class claim; financing round size is context, while the modeled check attributes an investor's proportional return.</p>
     ${renderSharedTerms()}
     ${state.stakeholders.map(renderStakeholderEditor).join("")}
     <button class="button add-row" type="button" data-action="add-stakeholder">add investor round</button>`;
@@ -159,14 +173,15 @@ function renderStakeholderControls() {
 function renderSharedTerms() {
   const terms = state.terms;
   return `<section class="shared-terms" aria-labelledby="shared-terms-title">
-    <header class="shared-terms-heading"><div><span class="kicker">blanket settings</span><h3 id="shared-terms-title">Shared transaction terms</h3></div><span>applies to all holders</span></header>
+    <header class="shared-terms-heading"><div><span class="kicker">blanket settings</span><h3 id="shared-terms-title">Shared transaction terms</h3></div><span>preferred equity + eligibility</span></header>
     <div class="shared-checks">
       ${booleanField("terms", "liquidationPreference", "Enable liquidation preference", terms.liquidationPreference)}
-      ${booleanField("terms", "pariPassu", "Pari passu across preferred classes", terms.pariPassu, !terms.liquidationPreference)}
+      ${booleanField("terms", "pariPassu", "Pari passu across preferred stock classes", terms.pariPassu, !terms.liquidationPreference)}
       ${booleanField("terms", "optimalConversion", "Use financially optimal conversion", terms.optimalConversion, !terms.liquidationPreference)}
       ${booleanField("terms", "participatingPreferred", "Participating preferred", terms.participatingPreferred, !terms.liquidationPreference)}
       ${booleanField("terms", "cappedParticipation", "Cap participation", terms.cappedParticipation, !terms.liquidationPreference || !terms.participatingPreferred)}
       ${booleanField("terms", "cumulativeDividends", "Cumulative dividends", terms.cumulativeDividends, !terms.liquidationPreference)}
+      ${booleanField("terms", "dividendsCountTowardCap", "Paid dividends count toward participation cap", terms.dividendsCountTowardCap, !terms.cumulativeDividends || !terms.cappedParticipation)}
       ${booleanField("terms", "antiDilution", "Anti-dilution ratchet", terms.antiDilution)}
       ${booleanField("terms", "escrowEligibleAll", "All holders share escrows / holdbacks", terms.escrowEligibleAll)}
       ${booleanField("terms", "deferredEligibleAll", "All holders share deferred consideration", terms.deferredEligibleAll)}
@@ -178,6 +193,8 @@ function renderSharedTerms() {
       ${terms.liquidationPreference && terms.cumulativeDividends && terms.dividendType === "fixed" ? inputField({ label: "Accrued dividend", value: terms.accruedDividend, inputType: "money", scope: "terms", field: "accruedDividend" }) : ""}
       ${terms.liquidationPreference && terms.cumulativeDividends && ["simple","compound"].includes(terms.dividendType) ? inputField({ label: "Dividend rate", value: terms.dividendRate, inputType: "percent", scope: "terms", field: "dividendRate" }) : ""}
       ${terms.liquidationPreference && terms.cumulativeDividends && ["simple","compound"].includes(terms.dividendType) ? inputField({ label: "Accrual years", value: terms.dividendYears, inputType: "number", scope: "terms", field: "dividendYears" }) : ""}
+      ${terms.liquidationPreference && terms.cumulativeDividends ? inputField({ label: "Dividends already paid", value: terms.paidDividends, inputType: "money", scope: "terms", field: "paidDividends" }) : ""}
+      ${terms.liquidationPreference && terms.cumulativeDividends && terms.dividendType === "compound" ? inputField({ label: "Compounding periods / year", value: terms.dividendPeriods, inputType: "number", scope: "terms", field: "dividendPeriods" }) : ""}
       ${terms.antiDilution ? selectSimpleField("terms", "ratchetType", "Ratchet method", terms.ratchetType, [["full-ratchet","Full ratchet"],["weighted-average","Weighted average"],["custom","Custom multiplier"]]) : ""}
       ${terms.antiDilution && terms.ratchetType !== "custom" ? inputField({ label: "Original conversion price", value: terms.originalPrice, inputType: "number", scope: "terms", field: "originalPrice" }) : ""}
       ${terms.antiDilution && terms.ratchetType !== "custom" ? inputField({ label: "Down-round price", value: terms.downRoundPrice, inputType: "number", scope: "terms", field: "downRoundPrice" }) : ""}
@@ -185,7 +202,7 @@ function renderSharedTerms() {
       ${terms.antiDilution && terms.ratchetType === "weighted-average" ? inputField({ label: "Down-round new money", value: terms.newMoney, inputType: "money", scope: "terms", field: "newMoney" }) : ""}
       ${terms.antiDilution && terms.ratchetType === "custom" ? inputField({ label: "Share multiplier", value: terms.conversionMultiplier, inputType: "number", scope: "terms", field: "conversionMultiplier" }) : ""}
     </div>
-    <p class="shared-terms-note">When preference is off, every preferred security converts and shares proceeds on the same as-converted basis. When preference is on, each holder takes the financially superior preference-or-conversion outcome by default. Pari passu remains off unless selected.</p>
+    <p class="shared-terms-note">Universal preference terms apply to preferred stock classes, not common or outstanding notes. Standard SAFEs retain their contractual claim and rank alongside preferred when pari passu is selected. Notes retain their individual debt-senior terms. ${terms.pariPassu ? (state.meta?.preset === "airtable" ? "This Airtable preset enables pari passu because the filing-derived charter terms support it; clean and newly added models default it off." : "This scenario explicitly enables pari passu.") : "Pari passu is off unless selected."}</p>
   </section>`;
 }
 
@@ -206,6 +223,7 @@ function renderTrancheEditor(tranche, index) {
         ${indexedField(index, "tranche", "amount", "Face amount", tranche.amount, "money")}
         ${selectField(index, "tranche", "type", "Form", tranche.type, [["stock","Buyer stock"],["escrow","Escrow / holdback"],["note","Seller note"],["earnout","Earnout"],["rollover","Rollover equity"],["other","Other"]])}
         ${selectField(index, "tranche", "treatment", "Price treatment", tranche.treatment || "included", [["included","Included in bridge"],["incremental","Incremental to bridge"]])}
+        ${selectField(index, "tranche", "allocationBasis", "Allocation basis", tranche.allocationBasis || "pro-rata", [["pro-rata","Closing pro rata"],["cumulative","Cumulative waterfall"]])}
         ${selectField(index, "tranche", "eligibility", "Eligible holders", tranche.eligibility, [["all","All holders"],["escrow","Escrow-eligible"],["deferred","Deferred-eligible"]])}
         ${indexedField(index, "tranche", "expectedPercent", "Expected realization", tranche.expectedPercent, "percent")}
         ${indexedField(index, "tranche", "years", "Timing (years)", tranche.years, "number")}
@@ -229,12 +247,13 @@ function renderStakeholderEditor(holder, index) {
         ${indexedField(index, "stakeholder", "shares", "As-converted shares", holder.shares, "shares")}
         ${indexedField(index, "stakeholder", "eligiblePercent", "Vested / eligible", holder.eligiblePercent, "percent")}
         ${optionLike ? indexedField(index, "stakeholder", "strike", "Strike per share", holder.strike, "number") : ""}
-        ${preferenceSecurity ? indexedField(index, "stakeholder", "roundSize", "Total round size", holder.roundSize, "money") : ""}
+        ${preferenceSecurity ? indexedField(index, "stakeholder", "invested", "Class preference basis", holder.invested, "money") : ""}
+        ${preferenceSecurity ? indexedField(index, "stakeholder", "roundSize", "Financing round size", holder.roundSize, "money") : ""}
         ${preferenceSecurity ? indexedField(index, "stakeholder", "investorInvestment", "Investment amount", holder.investorInvestment, "money") : ""}
       </div>
       <div class="holder-terms">
         ${indexedBooleanField(index, "useSharedTerms", "Use universal transaction settings", holder.useSharedTerms)}
-        ${holder.useSharedTerms ? `<p class="holder-terms-note">Universal preference, participation, ratchet and consideration settings apply. This row retains its selected seniority.</p>` : renderIndividualTerms(holder, index, preferenceSecurity)}
+        ${holder.useSharedTerms ? `<p class="holder-terms-note">${escapeHtml(sharedTermsDescription(holder))}</p>` : renderIndividualTerms(holder, index, preferenceSecurity)}
       </div>
       <div class="editor-actions"><button class="button danger" type="button" data-action="remove-stakeholder" data-index="${index}">remove</button></div></div>
     </details>`;
@@ -247,21 +266,28 @@ function renderIndividualTerms(holder, index, preferenceSecurity) {
     <span class="individual-terms-label">individual override</span>
     <div class="shared-checks">
       ${preferenceSecurity ? indexedBooleanField(index, "preferenceEnabled", "Enable liquidation preference", holder.preferenceEnabled) : ""}
-      ${preferenceSecurity ? indexedBooleanField(index, "optimalConversion", "Use financially optimal conversion", holder.optimalConversion, !holder.preferenceEnabled) : ""}
       ${preferenceSecurity ? indexedBooleanField(index, "participatingPreferred", "Participating preferred", holder.participatingPreferred, !holder.preferenceEnabled) : ""}
       ${preferenceSecurity ? indexedBooleanField(index, "cappedParticipation", "Cap participation", holder.cappedParticipation, !holder.preferenceEnabled || !holder.participatingPreferred) : ""}
       ${preferenceSecurity ? indexedBooleanField(index, "cumulativeDividends", "Cumulative dividends", holder.cumulativeDividends, !holder.preferenceEnabled) : ""}
+      ${preferenceSecurity ? indexedBooleanField(index, "dividendsCountTowardCap", "Paid dividends count toward participation cap", holder.dividendsCountTowardCap, !holder.cumulativeDividends || !holder.cappedParticipation) : ""}
       ${preferenceSecurity ? indexedBooleanField(index, "antiDilution", "Anti-dilution ratchet", holder.antiDilution) : ""}
       ${indexedBooleanField(index, "escrowEligible", "Shares escrows / holdbacks", holder.escrowEligible)}
       ${indexedBooleanField(index, "deferredEligible", "Shares deferred consideration", holder.deferredEligible)}
     </div>
     ${preferenceSecurity ? `<div class="form-grid shared-term-values">
       ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "preferenceMultiple", "Preference multiple", holder.preferenceMultiple ?? 1, "number") : ""}
+      ${holder.preferenceEnabled ? selectField(index, "stakeholder", "conversionPolicy", "Conversion election", holder.conversionPolicy || (holder.optimalConversion !== false ? "elective" : "force-preference"), [["elective","Financially optimal"],["force-preference","Force preference"],["force-convert","Force conversion"]]) : ""}
+      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "secondaryPreferenceMultiple", "Additional preference multiple", holder.secondaryPreferenceMultiple ?? 0, "number") : ""}
+      ${holder.preferenceEnabled && number(holder.secondaryPreferenceMultiple) > 0 ? selectField(index, "stakeholder", "secondarySeniority", "Additional preference seniority", String(holder.secondarySeniority || holder.seniority || 1), SENIORITY_OPTIONS) : ""}
+      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "priorDistributions", "Prior preference distributions", holder.priorDistributions ?? 0, "money") : ""}
+      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "waiverPercent", "Preference waived", holder.waiverPercent ?? 0, "percent") : ""}
       ${holder.preferenceEnabled && holder.participatingPreferred && holder.cappedParticipation ? indexedField(index, "stakeholder", "capMultiple", "Participation cap", holder.capMultiple ?? 3, "number") : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends ? selectField(index, "stakeholder", "dividendType", "Dividend method", dividendType, [["fixed","Fixed accrued"],["simple","Simple annual"],["compound","Compound annual"]]) : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends && dividendType === "fixed" ? indexedField(index, "stakeholder", "accruedDividend", "Accrued dividend", holder.accruedDividend, "money") : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends && ["simple","compound"].includes(dividendType) ? indexedField(index, "stakeholder", "dividendRate", "Dividend rate", holder.dividendRate, "percent") : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends && ["simple","compound"].includes(dividendType) ? indexedField(index, "stakeholder", "dividendYears", "Accrual years", holder.dividendYears, "number") : ""}
+      ${holder.preferenceEnabled && holder.cumulativeDividends ? indexedField(index, "stakeholder", "paidDividends", "Dividends already paid", holder.paidDividends ?? 0, "money") : ""}
+      ${holder.preferenceEnabled && holder.cumulativeDividends && dividendType === "compound" ? indexedField(index, "stakeholder", "dividendPeriods", "Compounding periods / year", holder.dividendPeriods ?? 1, "number") : ""}
       ${holder.antiDilution ? selectField(index, "stakeholder", "ratchetType", "Ratchet method", ratchetType, [["full-ratchet","Full ratchet"],["weighted-average","Weighted average"],["custom","Custom multiplier"]]) : ""}
       ${holder.antiDilution && ratchetType !== "custom" ? indexedField(index, "stakeholder", "originalPrice", "Original conversion price", holder.originalPrice, "number") : ""}
       ${holder.antiDilution && ratchetType !== "custom" ? indexedField(index, "stakeholder", "downRoundPrice", "Down-round price", holder.downRoundPrice, "number") : ""}
@@ -323,6 +349,7 @@ function renderResults() {
       ${metric("cash at close", formatMoney(totalClosing))}
       ${metric("non-cash / deferred", formatMoney(totalDeferred))}
       ${metric("expected present value", formatMoney(totalExpected))}
+      ${number(consideration.unallocated) > .01 ? metric("unallocated consideration", formatMoney(consideration.unallocated)) : ""}
     </section>
     <div class="visual-grid">
       ${renderBridgeChart(bridge, incremental, grossProceeds)}
@@ -359,24 +386,17 @@ function renderBridgeChart(bridge, incremental, grossProceeds) {
 
 function renderInvestorOutcomes(rows, waterfall, total) {
   const investors = rows.filter(({ holder }) => ["preferred", "safe", "note"].includes(holder.securityType) || number(holder.investorInvestment) > 0).map((row) => {
-    const roundSize = Math.max(0, number(row.holder.roundSize || row.holder.invested));
-    const investment = Math.max(0, number(row.holder.investorInvestment || roundSize));
-    const fraction = roundSize > 0 ? Math.min(1, investment / roundSize) : 1;
+    const attribution = computeInvestorAttribution(row.holder, row.timing, row.deferred);
     return {
       ...row,
       name: row.holder.className || seriesLabel(row.holder.series),
-      roundSize,
-      investment,
-      fraction,
-      investorExit: row.timing.entitlement * fraction,
-      investorClosing: row.timing.closingCash * fraction,
-      investorDeferred: row.deferred * fraction,
+      ...attribution,
     };
   });
   const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
   const scaleMax = Math.max(1, ...investors.flatMap((item) => [item.investment, item.investorExit]));
   const rowsHtml = investors.map((item, index) => {
-    const outcome = item.investment > 0 ? `${formatMultiple(item.investorExit / item.investment)} · ${formatPercent(item.fraction)} of round` : `${formatPercent(item.fraction)} of round`;
+    const outcome = item.investment > 0 ? `${formatMultiple(item.investorExit / item.investment)} · ${formatPercent(item.fraction)} of class basis` : `${formatPercent(item.fraction)} of class basis`;
     const initialWidth = comparisonBarWidth(item.investment, scaleMax);
     const exitWidth = comparisonBarWidth(item.investorExit, scaleMax);
     return `<div class="class-compare-row">
@@ -395,7 +415,7 @@ function renderPeopleOutcomes(rows, pricePerShare) {
   const rowsHtml = cohorts.map((item, index) => {
     const exerciseMix = item.equityType === "common"
       ? "common stock"
-      : `${formatPercent(item.exercisedPercent / 100)} exercised · ${formatPercent(1 - item.exercisedPercent / 100)} unexercised`;
+      : `${formatPercent(item.exercisedPercent / 100)} of vested exercised · ${formatShares(item.unexercisedShares)} unexercised`;
     const multiple = item.exerciseCost > 0
       ? `${exerciseMix}${item.makeWhole > 0 ? ` · ${number(item.recoveryFloorMultiple).toFixed(1)}× floor` : ""}`
       : exerciseMix;
@@ -431,11 +451,14 @@ function renderInvestorTable(investors, waterfall, total) {
     const moic = item.investment > 0 ? formatMultiple(item.investorExit / item.investment) : "—";
     const classLabel = holder.className || seriesLabel(holder.series);
     const holderDetail = holder.name && holder.name !== classLabel ? `<span class="subtext">${escapeHtml(holder.name)}</span>` : "";
-    return `<tr><td><strong>${escapeHtml(classLabel)}</strong>${holderDetail}</td><td class="money">${formatMoney(item.roundSize)}</td><td class="money">${formatMoney(item.investment)}</td><td><strong>${escapeHtml(choice)}</strong><span class="subtext">${formatShares(holder.shares)} · ${formatPercent(item.fraction)} of round</span></td><td class="money">${formatMoney(item.investorExit)}</td><td class="money">${moic}</td></tr>`;
+    const timingDetail = item.investorDeferred > 0
+      ? `<span class="subtext">${formatMoney(item.investorClosing)} cash · ${formatMoney(item.investorDeferred)} other consideration · ${formatMoney(item.investorExpected)} PV</span>`
+      : `<span class="subtext">${formatMoney(item.investorClosing)} at close</span>`;
+    return `<tr><td><strong>${escapeHtml(classLabel)}</strong>${holderDetail}</td><td class="money">${formatMoney(item.preferenceBasis)}</td><td class="money">${formatMoney(item.roundSize)}</td><td class="money">${formatMoney(item.investment)}</td><td><strong>${escapeHtml(choice)}</strong><span class="subtext">${formatShares(holder.shares)} · ${formatPercent(item.fraction)} of class basis</span></td><td class="money"><strong>${formatMoney(item.investorExit)}</strong>${timingDetail}</td><td class="money">${moic}</td></tr>`;
   }).join("");
   const investmentTotal = investors.reduce((sum, item) => sum + item.investment, 0);
   const exitTotal = investors.reduce((sum, item) => sum + item.investorExit, 0);
-  return `<section class="payout-section" aria-labelledby="investor-table-title"><div class="table-heading"><div><span class="section-label">investor detail</span><h3 id="investor-table-title">Share-class waterfall</h3></div><p>class preference uses total round size; return uses modeled check</p></div><div class="table-wrap"><table><thead><tr><th>share class</th><th>round size</th><th>investor check</th><th>exit treatment</th><th>investor exit</th><th>gross MOIC</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td>modeled investors</td><td></td><td>${formatMoney(investmentTotal)}</td><td></td><td>${formatMoney(exitTotal)}</td><td>${investmentTotal > 0 ? formatMultiple(exitTotal / investmentTotal) : "—"}</td></tr></tfoot></table></div></section>`;
+  return `<section class="payout-section" aria-labelledby="investor-table-title"><div class="table-heading"><div><span class="section-label">investor detail</span><h3 id="investor-table-title">Share-class waterfall</h3></div><p>preference basis drives the claim; check drives attribution</p></div><div class="table-wrap"><table><thead><tr><th>share class</th><th>preference basis</th><th>round size</th><th>investor check</th><th>exit treatment</th><th>investor exit</th><th>gross MOIC</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td>modeled investors</td><td></td><td></td><td>${formatMoney(investmentTotal)}</td><td></td><td>${formatMoney(exitTotal)}</td><td>${investmentTotal > 0 ? formatMultiple(exitTotal / investmentTotal) : "—"}</td></tr></tfoot></table></div></section>`;
 }
 
 function renderPeopleTable(cohorts, pricePerShare) {
@@ -444,7 +467,7 @@ function renderPeopleTable(cohorts, pricePerShare) {
     const protection = item.makeWhole + item.transactionBonus + item.retentionPresentValue;
     const treatment = item.equityType === "common"
       ? "common stock"
-      : `${formatPercent(item.exercisedPercent / 100)} exercised; ${item.unexercisedShares > 0 ? (inTheMoney ? "remainder cashless" : "remainder underwater") : "fully exercised"}${item.makeWhole > 0 ? " · 1× floor" : ""}`;
+      : `${formatPercent(item.exercisedPercent / 100)} of vested exercised; ${item.unexercisedShares > 0 ? (inTheMoney ? "remainder cashless" : "remainder underwater") : "fully exercised"}${item.makeWhole > 0 ? " · 1× floor" : ""}`;
     const positiveTreatment = item.makeWhole > 0 || inTheMoney || item.equityType === "common";
     return `<tr><td><strong>${escapeHtml(item.label)}</strong><span class="subtext">${escapeHtml(seriesLabel(item.entryStage))} · ${formatPercent(item.eligiblePercent / 100)} vested${item.acceleratedShares > 0 ? ` · ${formatShares(item.acceleratedShares)} accelerated` : ""}</span></td><td class="money">${formatShares(item.eligibleShares)}</td><td class="money">${formatPrice(item.strike)}</td><td class="money">${formatMoney(item.initialInvestment)}</td><td class="money">${formatMoney(item.equityProceeds)}</td><td class="money">${formatMoney(protection)}</td><td class="money">${formatMoney(item.expectedValue)}</td><td><strong class="${positiveTreatment ? "positive" : "negative"}">${escapeHtml(treatment)}</strong></td></tr>`;
   }).join("");
@@ -457,18 +480,18 @@ function renderDialogs() {
   const tiers = [...new Set(activePrefs.map((holder) => number(holder.seniority)))].sort((a,b)=>a-b);
   methodsContent.innerHTML = `<div class="explainers">
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
-    ${explainer("Investor round view", "Each investor row represents a financing class. Total round size is the class-level preference basis. The modeled investor check controls the proportional share of that class shown in investor returns; set it equal to round size to model the full syndicate.")}
+    ${explainer("Investor round view", "Each investor row represents a financing class. Class preference basis drives the liquidation claim; financing round size is contextual. The modeled investor check controls the proportional share of the class basis shown in investor returns. Public round announcements and charter-derived class basis can differ.")}
     ${explainer("Founders versus employees", "Founder common is a cap-table security and participates in the shareholder waterfall. Employee rows are normalized 100K-award scenarios, not population totals. Airtable's filings disclose aggregate common but not founder ownership, so the founder/employee split is an editable midpoint estimate.")}
     ${state.meta?.preset === "airtable" ? explainer("Founder FF stock", "Airtable's February 2013 capitalization includes 667,395 shares of Series FF, or 0.7% of outstanding shares. FF is founders preferred: common-like founder equity with a conversion feature that can facilitate limited founder secondary liquidity in a later financing. The available source does not disclose a separate issue price or liquidation preference; the simulator therefore assigns these shares to founders and models them as common at exit.") : ""}
     ${explainer("Employee protection", "The exercised-share recovery floor is a personal make-whole overlay: it fills any gap between gross common proceeds and the selected multiple of exercise cost. It is not deducted from the shareholder waterfall because public information does not disclose the protected population or total pool. Add a seller-funded carveout to the deal bridge if modeling an aggregate funded pool. Retention is discounted separately as buyer-funded compensation.")}
     ${explainer("Airtable employee assumptions", "Historical 409A marks in the December 2024 cap-table report anchor illustrative strikes. Exercise rates decline by entry stage; the 2023+ example assumes 25% of vested options were exercised. Exercised shares receive a modeled 1× cost-recovery floor, while unexercised options receive only positive spread. These are evidence-informed house assumptions, not disclosed Airtable deal terms.")}
-    ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. ${state.terms.pariPassu ? "The universal pari passu setting is on, so preferred classes occupy the same tier." : "The universal pari passu setting is off, so each preferred class uses its selected seniority."} Tier 1 pays first.` : "Liquidation preference and pari passu are off in the clean default. Eligible securities share value on an as-converted common basis.")}
-    ${explainer("Conversion elections", waterfall.stableElection ? "The solver evaluates up to 4,096 preference and conversion combinations for 12 elective classes. A class takes preference when conversion would not improve its payout with the other elections held fixed." : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
-    ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple. A class may split claims across two priority tiers.")}
-    ${explainer("Ratchets and dividends", "Full ratchet resets the conversion price to the down-round price. Weighted average uses CP2 = CP1 × (A + B) / (A + C). Fixed, simple or compounded cumulative dividends can increase preference; prior payments and waivers reduce it.")}
-    ${explainer("Exercised versus unexercised options", "A cohort can be partially exercised. Exercised shares receive gross common proceeds plus any selected recovery make-whole; unexercised options receive only positive spread over strike, often through cashless settlement. The recovery floor defaults to zero in a new model and must be supported by the transaction's employee-protection terms.")}
+    ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. ${state.terms.pariPassu ? "The universal pari passu setting is on, so preferred stock classes—and standard SAFEs with shared terms—occupy the same investor tier." : "The universal pari passu setting is off, so each instrument uses its selected seniority."} Common remains junior. Outstanding notes retain their individual debt-senior treatment. Tier 1 pays first.` : "Liquidation preference and pari passu are off in the clean default. Common participates on an as-converted basis; any outstanding SAFE or note retains its own contractual claim.")}
+    ${explainer("Conversion elections", waterfall.stableElection ? (waterfall.electionMethod === "iterative" ? "For more than 12 elective classes, the solver applies deterministic best-response elections until no class can improve by switching. Smaller models exhaustively evaluate every combination. Confirm whether elections occur by holder, series or class vote." : "For up to 12 elective classes, the solver exhaustively evaluates every preference and conversion combination. A class takes preference when conversion would not improve its payout with the other elections held fixed.") : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
+    ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple after preference, prior distributions and—when selected—paid dividends. A class may split claims across two priority tiers; generic prior distributions credit the most senior outstanding claim first.")}
+    ${explainer("Ratchets and dividends", "Full ratchet resets the conversion price to the down-round price. Weighted average uses CP2 = CP1 × (A + B) / (A + C). Fixed, simple or compounded cumulative dividends can increase preference; prior payments and waivers reduce it. Whether historical dividends count toward a participation cap is document-specific and explicitly configurable.")}
+    ${explainer("Exercised versus unexercised options", "The historical exercise percentage applies only to shares vested before closing. Newly accelerated options remain unexercised and receive only positive spread unless the transaction documents provide an exercise or cash-out mechanic. Exercised shares receive gross common proceeds plus any selected recovery make-whole.")}
     ${explainer("Options, warrants and vesting", "Vested shares are eligible at close; the acceleration input separately converts a percentage of unvested shares into eligible shares. Underwater unexercised options may be cancelled for no consideration unless the governing documents provide otherwise.")}
-    ${explainer("Consideration timing", "Stock, escrow, notes, earnouts and rollover replace cash at close for eligible holders. Probability and timing drive expected present value. Incremental tranches add to total proceeds; included tranches only change form or timing.")}
+    ${explainer("Consideration timing", "Every tranche has an explicit allocation basis. Closing-pro-rata tranches use each eligible holder's initial waterfall share; this is the default for buyer stock, escrow, notes and rollover. Cumulative-waterfall tranches reserve included value from initial proceeds, then recalculate holder entitlement after crediting prior payments; this is the earnout default. Same-time cumulative tranches are solved together so row order cannot change form or risk allocation. The merger agreement controls. Probability and timing affect expected present value, not nominal entitlement.")}
     ${explainer("Calculation boundary", "Ask deal counsel and tax advisers to model withholding, appraisal rights, election proration, collars, charter interpretation and enforceability.")}
   </div><p class="disclaimer">Illustrative modeling only. Confirm each mechanic against the charter, financing documents, equity plan, merger agreement and final closing funds-flow memorandum.</p>`;
 
@@ -486,10 +509,11 @@ function buildWarnings(bridge, waterfall, consideration) {
   if (waterfall.unallocated > 1) warnings.push({ tone: "danger", text: `${formatMoney(waterfall.unallocated)} remains unallocated because no eligible security can receive it.` });
   waterfall.warnings.forEach((text) => warnings.push({ tone: "danger", text }));
   consideration.warnings.forEach((text) => warnings.push({ text }));
+  if (number(consideration.unallocated) > 1) warnings.push({ tone: "danger", text: `${formatMoney(consideration.unallocated)} is not assigned to a holder under the selected tranche eligibility and allocation bases.` });
   const ids = state.stakeholders.map((holder) => holder.id);
   if (new Set(ids).size !== ids.length) warnings.push({ tone: "danger", text: "Stakeholder IDs must be unique." });
-  state.stakeholders.filter((holder) => number(holder.investorInvestment) > number(holder.roundSize) && number(holder.roundSize) >= 0).forEach((holder) => {
-    warnings.push({ tone: "danger", text: `${seriesLabel(holder.series)} modeled investor check exceeds the total round size; investor attribution is capped at 100% of the class.` });
+  state.stakeholders.filter((holder) => number(holder.investorInvestment) > number(holder.invested) && number(holder.invested) >= 0).forEach((holder) => {
+    warnings.push({ tone: "danger", text: `${seriesLabel(holder.series)} modeled investor check exceeds the class preference basis; investor attribution is capped at 100% of the class.` });
   });
   applySharedTerms(state.stakeholders, state.terms).filter((holder) => ["preferred","safe","note"].includes(holder.securityType) && holder.ratchetType !== "none").forEach((holder) => {
     const multiplier = ratchetMultiplier(holder);
@@ -560,8 +584,9 @@ function updateStateFromControl(target) {
   if (scope === "terms") state.terms[field] = value;
   if (scope === "tranche") state.tranches[number(index)][field] = value;
   if (scope === "stakeholder") {
-    state.stakeholders[number(index)][field] = value;
-    if (field === "roundSize") state.stakeholders[number(index)].invested = value;
+    const holderIndex = number(index);
+    if (field === "securityType") state.stakeholders[holderIndex] = applySecurityTypeDefaults(state.stakeholders[holderIndex], value);
+    else state.stakeholders[holderIndex][field] = value;
   }
   if (scope === "cohort") state.peopleCohorts[number(index)][field] = value;
   markModelCustom();
@@ -654,6 +679,19 @@ importFile.addEventListener("change", async () => {
 });
 
 function countActiveTranches() { return state.tranches.filter((tranche) => number(tranche.amount) > 0).length; }
+function sharedTermsDescription(holder) {
+  if (holder.securityType === "safe") return "Standard SAFE: 1× cash-out versus conversion, on the preferred tier when pari passu is selected. Turn off shared terms for a custom instrument.";
+  if (holder.securityType === "note") return "Outstanding note: individual claim and seniority are preserved. If it is repaid through deal debt, include it in the bridge instead and avoid double counting.";
+  if (holder.securityType === "preferred") return "Universal preferred-stock economics and consideration eligibility apply; selected seniority remains editable unless pari passu is on.";
+  return "Shared consideration eligibility applies; common and employee securities do not receive investor preference terms.";
+}
+function ensureUniqueId(candidate, prefix, used) {
+  let id = String(candidate ?? "").trim();
+  if (!id || used.has(id)) id = uniqueId(prefix);
+  while (used.has(id)) id = uniqueId(prefix);
+  used.add(id);
+  return id;
+}
 function markModelCustom() {
   const basePreset = state.meta?.basePreset in PRESETS
     ? state.meta.basePreset

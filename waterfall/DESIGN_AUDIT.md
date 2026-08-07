@@ -37,7 +37,7 @@ Post-redesign score: **20/20**
 - Selects and checkboxes use complete Atas theming across default, hover, focus, checked, invalid and disabled states.
 - At laptop width, the EV bridge spans the results pane while ownership and sensitivity charts share a second row. At narrower widths, all charts stack at full width.
 - Airtable is the default case, Brex is separate, and modeled inputs are stated in the interface and source dialog.
-- The solver exhaustively optimizes up to 12 elective preference classes, or 4,096 combinations. Larger models require forced elections based on counsel-reviewed terms.
+- The solver exhaustively optimizes up to 12 elective preference classes, or 4,096 combinations. Larger cap tables use deterministic best-response elections and disclose the method and stability result; they are no longer forced to convert.
 
 ## Result-clarity audit
 
@@ -69,3 +69,33 @@ Overall score before fixes: **17/20**. Post-fix score: **20/20**.
 - Browser testing exercised 22 end-to-end workflows covering presets, reset and persistence, both result views, every input section, row creation/removal, universal preference and optimal-conversion controls, model actions, dialogs, and chart updates.
 - A rendered-value audit checked all 38 Airtable bars: 20 investor bars, 16 employee bars, and 2 founder/common bars. Every width matched its bound amount.
 - A separate logic defect was corrected: an explicit 0% holder eligibility setting had been normalized to 100%.
+
+## Independent mathematical audit — August 7, 2026
+
+The independent review found six material calculation and data-integrity risks. Each now has a targeted regression test.
+
+| Area | Defect | Resolution |
+|---|---|---|
+| Deferred proceeds | Included escrows were withheld pro rata from a full-exit allocation, and incremental earnouts were also allocated from final entitlements. Both could bypass a binding preference at closing. | Initial cash and noncontingent at-close forms are waterfalled together and split by form. Every later included or incremental tranche is processed chronologically through an updated cumulative waterfall after crediting prior payments. |
+| Conversion elections | A 13th elective preferred class was silently forced to convert. | Models with up to 12 elective classes remain exhaustive; larger models use a deterministic best-response solver and expose stability and regret. |
+| Consideration allocation | The legacy fixed-entitlement allocator could depend on tranche order, holder IDs, strand feasible value when eligibility overlapped, and assign same-time tranche risk differently after row reordering. | Every tranche chooses closing-pro-rata or cumulative allocation. Same-time cumulative tranches are solved together; a proportional, integer-cent capacity solver reserves restricted capacity without letting row order or IDs determine economic allocation. Any legally unallocable value is reported explicitly. |
+| Option exercise | The exercised percentage was applied to newly accelerated options as well as historically vested options. | Historical exercise applies only to vested shares; newly accelerated awards remain unexercised unless transaction terms provide otherwise. |
+| Entity identity | Duplicate or blank stakeholder IDs could overwrite payouts before the interface warned the user. | Imported rows receive unique IDs, while the engine rejects ambiguous stakeholder and tranche identifiers. |
+| Investor attribution | Financing round size, class preference basis and a modeled investor check were conflated, and an explicit zero-dollar check defaulted to the full class. | The three inputs are independent. Preference basis drives the claim; round size is context; check size controls attribution and respects zero. |
+| Cent reconciliation | Independent row rounding could overpay small holders and make the first row negative when the aggregate correction was large. | Nonnegative largest-remainder reconciliation now conserves the target amount without assigning a negative payout. |
+| Advanced terms | Split claims, prior payments and waivers existed in the engine but individual inputs were erased before an end-to-end model run; the advanced preset was also being overwritten by universal terms. | Individual overrides now expose and preserve split priority, prior distributions, waivers, paid dividends, compounding, cap convention and forced elections. The advanced preset uses genuine class-specific overrides. |
+| Participation caps | Capped participants could leave the residual solver before receiving the cap, and prior distributions were inconsistently credited. | The residual solver pays capped claims to saturation, credits prior distributions, applies historical payments in priority order and makes paid-dividend treatment explicitly configurable. |
+
+The two allocation bases reflect both patterns in SEC-filed transaction documents: some post-closing adjustments and earnouts use an updated waterfall after crediting prior payments, while escrow and representative-fund releases may use a fixed closing-payment share. The governing merger agreement controls each tranche.
+
+The pari passu control was also narrowed after primary-source review. It now governs preferred stock classes rather than every convertible instrument. Common remains junior; a standard SAFE preserves its own claim and can share the preferred tier; an outstanding note keeps its debt-senior or custom treatment. Rights follow the security, so founder-owned investor preferred is not excluded merely because its holder is a founder.
+
+### Mathematical verification
+
+- Binding-preference fixtures verify both a $50 incremental earnout and a $50 included escrow against $50 of closing cash: preferred receives $50 at close and $10 later; common receives $0 at close and $40 later.
+- A debt/SAFE/preferred fixture verifies that a $50 outstanding note is paid before a $30 SAFE and $40 preferred class share the remaining $10 pari passu; disabling universal preferred terms does not erase the note or SAFE claim.
+- Constrained-allocation fixtures verify that a restricted $50 escrow reserves the only eligible holder's capacity while unrestricted $50 stock moves to the other holder, independent of row order.
+- A boundary-feasible three-holder fixture reserves all deferred-only capacity, then divides unrestricted consideration by the remaining 32:73 economic entitlement rather than lexicographic holder ID; a 100-holder sub-dollar fixture verifies nonnegative cent reconciliation.
+- Preference, participation, dividend, ratchet, option, eligibility, bridge-sign, and present-value fixtures all pass.
+- Every bundled preset conserves gross waterfall proceeds and reconciles closing plus deferred consideration to holder entitlement within one cent.
+- 1,500 randomized cap tables with up to 15 preferred classes conserve proceeds, remain invariant to consideration-row order and return stable, finite results.

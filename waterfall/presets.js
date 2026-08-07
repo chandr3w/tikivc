@@ -1,11 +1,11 @@
 const zeroTranches = () => [
-  { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 0, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
-  { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 0, treatment: "included", eligibility: "escrow", expectedPercent: 100, years: 0.25 },
-  { id: "indemnity-escrow", label: "Indemnity escrow / holdback", type: "escrow", amount: 0, treatment: "included", eligibility: "escrow", expectedPercent: 95, years: 1.5 },
-  { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 0, treatment: "included", eligibility: "escrow", expectedPercent: 80, years: 2 },
-  { id: "seller-note", label: "Seller note", type: "note", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 95, years: 2 },
-  { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 50, years: 2 },
-  { id: "rollover", label: "Rollover equity", type: "rollover", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 85, years: 4 },
+  { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "all", expectedPercent: 100, years: 0 },
+  { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "escrow", expectedPercent: 100, years: 0.25 },
+  { id: "indemnity-escrow", label: "Indemnity escrow / holdback", type: "escrow", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "escrow", expectedPercent: 95, years: 1.5 },
+  { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "escrow", expectedPercent: 80, years: 2 },
+  { id: "seller-note", label: "Seller note", type: "note", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "deferred", expectedPercent: 95, years: 2 },
+  { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 0, treatment: "included", allocationBasis: "cumulative", eligibility: "deferred", expectedPercent: 50, years: 2 },
+  { id: "rollover", label: "Rollover equity", type: "rollover", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "deferred", expectedPercent: 85, years: 4 },
 ];
 
 const cleanHolder = (holder) => {
@@ -32,6 +32,7 @@ const cleanHolder = (holder) => {
     dividendYears: 0,
     dividendPeriods: 1,
     paidDividends: 0,
+    dividendsCountTowardCap: true,
     waiverPercent: 0,
     priorDistributions: 0,
     seniority: 1,
@@ -113,6 +114,7 @@ const sharedTerms = (overrides = {}) => ({
   dividendYears: 0,
   dividendPeriods: 1,
   paidDividends: 0,
+  dividendsCountTowardCap: true,
   antiDilution: false,
   ratchetType: "weighted-average",
   originalPrice: 0,
@@ -257,8 +259,8 @@ export const PRESETS = {
       cleanHolder({ id: "series-c", name: "Series C preferred", className: "Series C preferred", series: "series-c", securityType: "preferred", shares: 3_854_617, invested: 103_024_661, roundSize: 103_024_661, investorInvestment: 103_024_661, seniority: 1, displayOrder: 4 }),
       cleanHolder({ id: "series-c1", name: "Series C-1 preferred", className: "Series C-1 preferred", series: "series-c", securityType: "preferred", shares: 658_139, invested: 5_299_993, roundSize: 5_299_993, investorInvestment: 5_299_993, seniority: 1, displayOrder: 4.1 }),
       cleanHolder({ id: "series-d", name: "Series D preferred", className: "Series D preferred", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 189_999_360, roundSize: 189_999_360, investorInvestment: 189_999_360, seniority: 1, displayOrder: 5 }),
-      cleanHolder({ id: "series-e", name: "Series E preferred", className: "Series E preferred", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 334_998_949, roundSize: 334_998_949, investorInvestment: 334_998_949, seniority: 1, displayOrder: 6 }),
-      cleanHolder({ id: "series-f", name: "Series F preferred", className: "Series F preferred", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 785_016_654, roundSize: 785_016_654, investorInvestment: 785_016_654, seniority: 1, displayOrder: 7 }),
+      cleanHolder({ id: "series-e", name: "Series E preferred", className: "Series E preferred", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 334_998_949, roundSize: 270_000_000, investorInvestment: 270_000_000, seniority: 1, displayOrder: 6 }),
+      cleanHolder({ id: "series-f", name: "Series F preferred", className: "Series F preferred", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 785_016_654, roundSize: 735_000_000, investorInvestment: 735_000_000, seniority: 1, displayOrder: 7 }),
       cleanHolder({ id: "series-ff", name: "Founder FF stock issued at formation", className: "Founder FF (common-like)", series: "formation", category: "founder", securityType: "common", shares: 667_395, displayOrder: 0.2 }),
     ],
   },
@@ -267,7 +269,7 @@ export const PRESETS = {
       preset: "brex",
       title: "Brex: completed acquisition",
       description: "Capital One's completed cash-and-stock acquisition using disclosed closing consideration and a financing-class model calibrated to the merger's reported Series D and D-2 proceeds.",
-      asOf: "Closed April 7, 2026. Capital One disclosed $2.56B cash plus 10,646,306 shares worth $1.929B at the $181.15 closing price, or $4.489B total fair value. The preset derives a 354.1M-share capitalization from Brex's $12.3B Series D-2 valuation and $34.73595 issue price, then uses ClearList's class-level financing amounts and preferred prices. This reproduces the disclosed $22.57881 Series D and $34.73595 Series D-2 proceeds as 1× preferences. Founder ownership uses Forbes' January 2022 estimate of 14% each; the remaining common is employees, former employees and other holders. All derived ownership and employee exercise inputs remain editable.",
+      asOf: "Closed April 7, 2026. Capital One disclosed $2.56B cash plus 10,646,306 shares worth $1.929B at the $181.15 closing price, or $4.489B total fair value. The preset derives a 354.1M-share capitalization from Brex's $12.3B Series D-2 valuation and $34.73595 issue price, then uses ClearList's class-level financing amounts and preferred prices. This reproduces the disclosed $22.57881 Series D and $34.73595 Series D-2 proceeds as 1× preferences. The Form 8937 describes holder-level cash/stock elections and accreditation rules; because those elections are not public, buyer stock is shown as an aggregate pro-rata modeling assumption rather than the actual holder-by-holder mix. Founder ownership uses Forbes' January 2022 estimate of 14% each; the remaining common is employees, former employees and other holders. All derived ownership and employee exercise inputs remain editable.",
       sources: [
         {
           label: "Capital One closing Form 8-K",
@@ -277,7 +279,7 @@ export const PRESETS = {
         {
           label: "Capital One Form 8937 attachment",
           url: "https://investor.capitalone.com/static-files/4845bdc7-8508-4364-b508-5e93ab3c2833",
-          note: "The tax disclosure reports $22.57881 per Series D share, $34.73595 per Series D-2 share and a $181.15 Capital One closing price.",
+          note: "The tax disclosure reports $22.57881 per Series D share, $34.73595 per Series D-2 share and a $181.15 Capital One closing price. It also describes cash/stock elections and accreditation-based treatment that cannot be reconstructed holder by holder from public data.",
         },
         {
           label: "Brex Series D-2 announcement",
@@ -317,7 +319,7 @@ export const PRESETS = {
     terms: sharedTerms({ liquidationPreference: true, pariPassu: true, preferenceMultiple: 1 }),
     peopleCohorts: brexPeopleCohorts(),
     tranches: [
-      { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_928_578_332, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
+      { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_928_578_332, treatment: "included", allocationBasis: "pro-rata", eligibility: "all", expectedPercent: 100, years: 0 },
       ...zeroTranches().slice(1),
     ],
     stakeholders: [
@@ -336,7 +338,7 @@ export const PRESETS = {
     meta: {
       preset: "venture",
       title: "Venture-backed sale: advanced terms",
-      description: "An illustrative preference stack with pari passu classes, participation, a down-round ratchet, escrows and an earnout.",
+      description: "An illustrative seniority stack with class-specific preferences, participation, a down-round ratchet, escrows and an earnout.",
       asOf: "Illustrative",
       sources: [],
     },
@@ -368,22 +370,22 @@ export const PRESETS = {
     }),
     peopleCohorts: standardPeopleCohorts(),
     tranches: [
-      { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 10_000_000, treatment: "included", eligibility: "all", expectedPercent: 95, years: 0 },
-      { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 650_000, treatment: "included", eligibility: "escrow", expectedPercent: 98, years: 0.25 },
-      { id: "indemnity-escrow", label: "Indemnity escrow / holdback", type: "escrow", amount: 3_300_000, treatment: "included", eligibility: "escrow", expectedPercent: 90, years: 1.5 },
-      { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 250_000, treatment: "included", eligibility: "escrow", expectedPercent: 60, years: 2 },
-      { id: "seller-note", label: "Seller note", type: "note", amount: 5_000_000, treatment: "included", eligibility: "deferred", expectedPercent: 90, years: 2 },
-      { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 10_000_000, treatment: "incremental", eligibility: "deferred", expectedPercent: 55, years: 2 },
-      { id: "rollover", label: "Rollover equity", type: "rollover", amount: 4_000_000, treatment: "included", eligibility: "deferred", expectedPercent: 80, years: 4 },
+      { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 10_000_000, treatment: "included", allocationBasis: "pro-rata", eligibility: "all", expectedPercent: 95, years: 0 },
+      { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 650_000, treatment: "included", allocationBasis: "pro-rata", eligibility: "escrow", expectedPercent: 98, years: 0.25 },
+      { id: "indemnity-escrow", label: "Indemnity escrow / holdback", type: "escrow", amount: 3_300_000, treatment: "included", allocationBasis: "pro-rata", eligibility: "escrow", expectedPercent: 90, years: 1.5 },
+      { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 250_000, treatment: "included", allocationBasis: "pro-rata", eligibility: "escrow", expectedPercent: 60, years: 2 },
+      { id: "seller-note", label: "Seller note", type: "note", amount: 5_000_000, treatment: "included", allocationBasis: "pro-rata", eligibility: "deferred", expectedPercent: 90, years: 2 },
+      { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 10_000_000, treatment: "incremental", allocationBasis: "cumulative", eligibility: "deferred", expectedPercent: 55, years: 2 },
+      { id: "rollover", label: "Rollover equity", type: "rollover", amount: 4_000_000, treatment: "included", allocationBasis: "pro-rata", eligibility: "deferred", expectedPercent: 80, years: 4 },
     ],
     stakeholders: [
       cleanHolder({ id: "founders", name: "Founders", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 30_000_000 }),
       cleanHolder({ id: "employees", name: "Employee common & RSUs", className: "Employee equity", category: "employee", securityType: "rsu", shares: 5_000_000 }),
       cleanHolder({ id: "options", name: "Options", className: "Options", category: "employee", securityType: "option", shares: 10_000_000, strike: 0.5, eligiblePercent: 75, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceMultiple: 1, seniority: 3 }),
-      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceMultiple: 1, seniority: 2, participation: "capped", capMultiple: 3 }),
-      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceMultiple: 2, seniority: 1, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
-      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceMultiple: 2, seniority: 1 }),
+      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 1, seniority: 3 }),
+      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 1, seniority: 2, participatingPreferred: true, cappedParticipation: true, participation: "capped", capMultiple: 3 }),
+      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 2, seniority: 1, antiDilution: true, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
+      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 2, seniority: 1 }),
     ],
   },
 };
@@ -396,10 +398,35 @@ export function blankStakeholder(id) {
   return cleanHolder({ id, name: "New investor round", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 0, seniority: 1 });
 }
 
+export function applySecurityTypeDefaults(holder, securityType) {
+  const next = { ...holder, securityType };
+  if (securityType === "safe" || securityType === "note") {
+    next.preferenceEnabled = true;
+    next.preferenceMultiple = numberValue(holder.preferenceMultiple) > 0 ? numberValue(holder.preferenceMultiple) : 1;
+    next.optimalConversion = true;
+    next.conversionPolicy = "elective";
+    next.participation = "none";
+    next.participatingPreferred = false;
+    next.cappedParticipation = false;
+    next.seniority = Math.max(1, numberValue(holder.seniority) || 1);
+    next.useSharedTerms = true;
+    next.className = securityType === "safe" ? "SAFE" : "Convertible note";
+  }
+  if (securityType === "preferred") {
+    next.useSharedTerms = true;
+    next.preferenceEnabled = true;
+    next.optimalConversion = true;
+    next.className = holder.className && !["SAFE", "Convertible note"].includes(holder.className)
+      ? holder.className
+      : "Preferred stock";
+  }
+  return next;
+}
+
 export function blankPeopleCohort(id) {
   return { id, label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0, eligiblePercent: 100, exercisedPercent: 0, recoveryFloorMultiple: 0, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 };
 }
 
 export function blankTranche(id) {
-  return { id, label: "Other deferred consideration", type: "other", amount: 0, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 };
+  return { id, label: "Other deferred consideration", type: "other", amount: 0, treatment: "included", allocationBasis: "pro-rata", eligibility: "all", expectedPercent: 100, years: 0 };
 }
