@@ -397,7 +397,7 @@ function renderInvestorOutcomes(rows, waterfall, total) {
   const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
   const scaleMax = Math.max(1, ...investors.flatMap((item) => [item.investment, item.investorExit]));
   const rowsHtml = investors.map((item, index) => {
-    const outcome = item.investment > 0 ? `${formatDpi(item.investorExit / item.investment)} · ${formatIrr(item.grossIrr)} IRR · ${formatPercent(item.fraction)} of class basis` : `${formatPercent(item.fraction)} of class basis`;
+    const outcome = item.investment > 0 ? `${formatDpi(item.investorExit / item.investment)} · ${formatIrr(item.grossIrr)} IRR` : "No modeled investment";
     const initialWidth = comparisonBarWidth(item.investment, scaleMax);
     const exitWidth = comparisonBarWidth(item.investorExit, scaleMax);
     return `<div class="class-compare-row">
@@ -456,7 +456,7 @@ function renderInvestorTable(investors, waterfall, total) {
     const timingDetail = item.investorDeferred > 0
       ? `<span class="subtext">${formatMoney(item.investorClosing)} cash · ${formatMoney(item.investorDeferred)} other consideration · ${formatMoney(item.investorExpected)} PV</span>`
       : `<span class="subtext">${formatMoney(item.investorClosing)} at close</span>`;
-    return `<tr><td><strong>${escapeHtml(classLabel)}</strong>${holderDetail}</td><td class="money">${formatMoney(item.preferenceBasis)}</td><td class="money">${formatMoney(item.roundSize)}</td><td class="money">${formatMoney(item.investment)}</td><td><strong>${escapeHtml(choice)}</strong><span class="subtext">${formatShares(holder.shares)} · ${formatPercent(item.fraction)} of class basis</span></td><td class="money"><strong>${formatMoney(item.investorExit)}</strong>${timingDetail}</td><td class="money"><strong>${dpi}</strong><span class="subtext">${irr} gross IRR · ${formatYears(item.holdingPeriodYears)}</span></td></tr>`;
+    return `<tr><td><strong>${escapeHtml(classLabel)}</strong>${holderDetail}</td><td class="money">${formatMoney(item.preferenceBasis)}</td><td class="money">${formatMoney(item.roundSize)}</td><td class="money">${formatMoney(item.investment)}</td><td><strong>${escapeHtml(choice)}</strong><span class="subtext">${formatShares(holder.shares)}</span></td><td class="money"><strong>${formatMoney(item.investorExit)}</strong>${timingDetail}</td><td class="money"><strong>${dpi}</strong><span class="subtext">${irr} gross IRR · ${formatYears(item.holdingPeriodYears)}</span></td></tr>`;
   }).join("");
   const investmentTotal = investors.reduce((sum, item) => sum + item.investment, 0);
   const exitTotal = investors.reduce((sum, item) => sum + item.investorExit, 0);
