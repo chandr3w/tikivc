@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { allocateConsideration, allocateExitConsideration, applySharedTerms, comparisonBarWidth, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
+import { allocateConsideration, allocateExitConsideration, applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
 import { PRESETS, applySecurityTypeDefaults, blankStakeholder, clonePreset } from "../presets.js";
 
 const common = (id, shares) => ({ id, name: id, securityType: "common", shares, eligiblePercent: 100 });
@@ -440,6 +440,29 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(zeroCheck.investment, 0);
   assert.equal(zeroCheck.fraction, 0);
   assert.equal(zeroCheck.investorExit, 0);
+}
+
+{
+  const irr = computeAnnualizedIrr([
+    { amount: -100, time: 0 },
+    { amount: 200, time: 5 },
+  ]);
+  assert.ok(Math.abs(irr - (2 ** (1 / 5) - 1)) < 1e-10);
+  assert.equal(computeAnnualizedIrr([{ amount: -100, time: 0 }]), null);
+}
+
+{
+  const attributed = computeInvestorAttribution(
+    { roundSize: 100, invested: 100, investorInvestment: 50, holdingPeriodYears: 4 },
+    { entitlement: 200, closingCash: 120, tranches: { earnout: 80 }, expectedPresentValue: 180 },
+    80,
+    [{ id: "earnout", years: 2 }],
+  );
+  assert.equal(attributed.investorClosing, 60);
+  assert.equal(attributed.investorTranches[0].amount, 40);
+  assert.equal(attributed.irrCashFlows[2].time, 6);
+  const npv = attributed.irrCashFlows.reduce((sum, flow) => sum + flow.amount / ((1 + attributed.grossIrr) ** flow.time), 0);
+  assert.ok(Math.abs(npv) < 1e-8);
 }
 
 {

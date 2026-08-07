@@ -1,7 +1,7 @@
-import { applySharedTerms, comparisonBarWidth, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=18";
-import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=18";
+import { applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=19";
+import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=19";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v18";
+const STORAGE_KEY = "tiki-exit-waterfall-v19";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -250,6 +250,7 @@ function renderStakeholderEditor(holder, index) {
         ${preferenceSecurity ? indexedField(index, "stakeholder", "invested", "Class preference basis", holder.invested, "money") : ""}
         ${preferenceSecurity ? indexedField(index, "stakeholder", "roundSize", "Financing round size", holder.roundSize, "money") : ""}
         ${preferenceSecurity ? indexedField(index, "stakeholder", "investorInvestment", "Investment amount", holder.investorInvestment, "money") : ""}
+        ${preferenceSecurity ? indexedField(index, "stakeholder", "holdingPeriodYears", "Investment-to-exit years", holder.holdingPeriodYears, "number") : ""}
       </div>
       <div class="holder-terms">
         ${indexedBooleanField(index, "useSharedTerms", "Use universal transaction settings", holder.useSharedTerms)}
@@ -386,7 +387,7 @@ function renderBridgeChart(bridge, incremental, grossProceeds) {
 
 function renderInvestorOutcomes(rows, waterfall, total) {
   const investors = rows.filter(({ holder }) => ["preferred", "safe", "note"].includes(holder.securityType) || number(holder.investorInvestment) > 0).map((row) => {
-    const attribution = computeInvestorAttribution(row.holder, row.timing, row.deferred);
+    const attribution = computeInvestorAttribution(row.holder, row.timing, row.deferred, state.tranches);
     return {
       ...row,
       name: row.holder.className || seriesLabel(row.holder.series),
@@ -396,7 +397,7 @@ function renderInvestorOutcomes(rows, waterfall, total) {
   const colors = ["mint", "platinum", "mint-soft", "platinum-soft", "mint-dim", "platinum-dim"];
   const scaleMax = Math.max(1, ...investors.flatMap((item) => [item.investment, item.investorExit]));
   const rowsHtml = investors.map((item, index) => {
-    const outcome = item.investment > 0 ? `${formatMultiple(item.investorExit / item.investment)} · ${formatPercent(item.fraction)} of class basis` : `${formatPercent(item.fraction)} of class basis`;
+    const outcome = item.investment > 0 ? `${formatDpi(item.investorExit / item.investment)} · ${formatIrr(item.grossIrr)} IRR · ${formatPercent(item.fraction)} of class basis` : `${formatPercent(item.fraction)} of class basis`;
     const initialWidth = comparisonBarWidth(item.investment, scaleMax);
     const exitWidth = comparisonBarWidth(item.investorExit, scaleMax);
     return `<div class="class-compare-row">
@@ -448,17 +449,24 @@ function renderInvestorTable(investors, waterfall, total) {
   const rowsHtml = investors.map((item) => {
     const holder = item.holder;
     const choice = waterfall.choiceById[holder.id] === "preference" ? `preference · tier ${holder.seniority}` : "as-converted common";
-    const moic = item.investment > 0 ? formatMultiple(item.investorExit / item.investment) : "—";
+    const dpi = item.investment > 0 ? formatDpi(item.investorExit / item.investment) : "—";
+    const irr = formatIrr(item.grossIrr);
     const classLabel = holder.className || seriesLabel(holder.series);
     const holderDetail = holder.name && holder.name !== classLabel ? `<span class="subtext">${escapeHtml(holder.name)}</span>` : "";
     const timingDetail = item.investorDeferred > 0
       ? `<span class="subtext">${formatMoney(item.investorClosing)} cash · ${formatMoney(item.investorDeferred)} other consideration · ${formatMoney(item.investorExpected)} PV</span>`
       : `<span class="subtext">${formatMoney(item.investorClosing)} at close</span>`;
-    return `<tr><td><strong>${escapeHtml(classLabel)}</strong>${holderDetail}</td><td class="money">${formatMoney(item.preferenceBasis)}</td><td class="money">${formatMoney(item.roundSize)}</td><td class="money">${formatMoney(item.investment)}</td><td><strong>${escapeHtml(choice)}</strong><span class="subtext">${formatShares(holder.shares)} · ${formatPercent(item.fraction)} of class basis</span></td><td class="money"><strong>${formatMoney(item.investorExit)}</strong>${timingDetail}</td><td class="money">${moic}</td></tr>`;
+    return `<tr><td><strong>${escapeHtml(classLabel)}</strong>${holderDetail}</td><td class="money">${formatMoney(item.preferenceBasis)}</td><td class="money">${formatMoney(item.roundSize)}</td><td class="money">${formatMoney(item.investment)}</td><td><strong>${escapeHtml(choice)}</strong><span class="subtext">${formatShares(holder.shares)} · ${formatPercent(item.fraction)} of class basis</span></td><td class="money"><strong>${formatMoney(item.investorExit)}</strong>${timingDetail}</td><td class="money"><strong>${dpi}</strong><span class="subtext">${irr} gross IRR · ${formatYears(item.holdingPeriodYears)}</span></td></tr>`;
   }).join("");
   const investmentTotal = investors.reduce((sum, item) => sum + item.investment, 0);
   const exitTotal = investors.reduce((sum, item) => sum + item.investorExit, 0);
-  return `<section class="payout-section" aria-labelledby="investor-table-title"><div class="table-heading"><div><span class="section-label">investor detail</span><h3 id="investor-table-title">Share-class waterfall</h3></div><p>preference basis drives the claim; check drives attribution</p></div><div class="table-wrap"><table><thead><tr><th>share class</th><th>preference basis</th><th>round size</th><th>investor check</th><th>exit treatment</th><th>investor exit</th><th>gross MOIC</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td>modeled investors</td><td></td><td></td><td>${formatMoney(investmentTotal)}</td><td></td><td>${formatMoney(exitTotal)}</td><td>${investmentTotal > 0 ? formatMultiple(exitTotal / investmentTotal) : "—"}</td></tr></tfoot></table></div></section>`;
+  const maximumHolding = Math.max(0, ...investors.map((item) => item.holdingPeriodYears));
+  const portfolioCashFlows = investors.flatMap((item) => item.irrCashFlows.map((flow) => ({
+    amount: flow.amount,
+    time: flow.time + maximumHolding - item.holdingPeriodYears,
+  })));
+  const portfolioIrr = computeAnnualizedIrr(portfolioCashFlows);
+  return `<section class="payout-section" aria-labelledby="investor-table-title"><div class="table-heading"><div><span class="section-label">investor detail</span><h3 id="investor-table-title">Share-class waterfall</h3></div><p>DPI uses nominal proceeds; IRR uses editable investment-to-exit timing</p></div><div class="table-wrap"><table><thead><tr><th>share class</th><th>preference basis</th><th>round size</th><th>investor check</th><th>exit treatment</th><th>investor exit</th><th>gross DPI / IRR</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td>modeled investors</td><td></td><td></td><td>${formatMoney(investmentTotal)}</td><td></td><td>${formatMoney(exitTotal)}</td><td>${investmentTotal > 0 ? `<strong>${formatDpi(exitTotal / investmentTotal)}</strong><span class="subtext">${formatIrr(portfolioIrr)} gross IRR</span>` : "—"}</td></tr></tfoot></table></div></section>`;
 }
 
 function renderPeopleTable(cohorts, pricePerShare) {
@@ -481,6 +489,7 @@ function renderDialogs() {
   methodsContent.innerHTML = `<div class="explainers">
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
     ${explainer("Investor round view", "Each investor row represents a financing class. Class preference basis drives the liquidation claim; financing round size is contextual. The modeled investor check controls the proportional share of the class basis shown in investor returns. Public round announcements and charter-derived class basis can differ.")}
+    ${explainer("DPI and IRR", "Modeled gross DPI divides nominal attributed proceeds by invested capital. Gross IRR annualizes the same nominal proceeds using the editable investment-to-exit period and each consideration tranche's payment timing. Buyer stock, rollover and contingent value are not realized fund distributions until monetized; use governing dates and actual cash flows for reported fund returns.")}
     ${explainer("Founders versus employees", "Founder common is a cap-table security and participates in the shareholder waterfall. Employee rows are normalized 100K-award scenarios, not population totals. Airtable's filings disclose aggregate common but not founder ownership, so the founder/employee split is an editable midpoint estimate.")}
     ${state.meta?.preset === "airtable" ? explainer("Founder FF stock", "Airtable's February 2013 capitalization includes 667,395 shares of Series FF, or 0.7% of outstanding shares. FF is founders preferred: common-like founder equity with a conversion feature that can facilitate limited founder secondary liquidity in a later financing. The available source does not disclose a separate issue price or liquidation preference; the simulator therefore assigns these shares to founders and models them as common at exit.") : ""}
     ${explainer("Employee protection", "The exercised-share recovery floor is a personal make-whole overlay: it fills any gap between gross common proceeds and the selected multiple of exercise cost. It is not deducted from the shareholder waterfall because public information does not disclose the protected population or total pool. Add a seller-funded carveout to the deal bridge if modeling an aggregate funded pool. Retention is discounted separately as buyer-funded compensation.")}
@@ -742,7 +751,9 @@ function formatShares(value) {
 }
 
 function formatPercent(value) { return `${(number(value) * 100).toFixed(2)}%`; }
-function formatMultiple(value) { return `${number(value).toFixed(2)}× gross`; }
+function formatDpi(value) { return `${number(value).toFixed(2)}× DPI`; }
+function formatIrr(value) { return Number.isFinite(value) ? formatPercent(value) : "—"; }
+function formatYears(value) { return `${number(value).toFixed(number(value) % 1 ? 1 : 0)} yrs`; }
 function trimZeros(value, digits = 4) { return number(value).toFixed(digits).replace(/\.?0+$/, ""); }
 function labelForSecurity(value) { return { common:"Common stock", preferred:"Preferred stock", safe:"SAFE", note:"Convertible note", rsu:"RSU / restricted stock", option:"Option", warrant:"Warrant" }[value] || value; }
 function seriesLabel(value) { return Object.fromEntries(SERIES_OPTIONS)[value] || String(value || "Other"); }

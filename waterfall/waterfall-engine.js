@@ -235,21 +235,60 @@ export function comparisonBarWidth(value, scaleMaximum, exponent = 0.5) {
   return Math.min(100, Math.max(0, (amount / maximum) ** power * 100));
 }
 
-export function computeInvestorAttribution(holder, timing, deferred = 0) {
+export function computeInvestorAttribution(holder, timing, deferred = 0, tranches = []) {
   const roundSize = Math.max(0, number(holder?.roundSize ?? holder?.invested));
   const preferenceBasis = Math.max(0, number(holder?.invested ?? roundSize));
   const investment = Math.max(0, number(holder?.investorInvestment ?? preferenceBasis));
   const fraction = preferenceBasis > 0 ? Math.min(1, investment / preferenceBasis) : (investment > 0 ? 1 : 0);
+  const holdingPeriodYears = Math.max(0, number(holder?.holdingPeriodYears));
+  const investorClosing = Math.max(0, number(timing?.closingCash)) * fraction;
+  const investorTranches = tranches.map((tranche) => ({
+    id: tranche.id,
+    amount: Math.max(0, number(timing?.tranches?.[tranche.id])) * fraction,
+    years: Math.max(0, number(tranche.years)),
+  })).filter((tranche) => tranche.amount > EPSILON);
+  const irrCashFlows = [
+    { amount: -investment, time: 0 },
+    { amount: investorClosing, time: holdingPeriodYears },
+    ...investorTranches.map((tranche) => ({ amount: tranche.amount, time: holdingPeriodYears + tranche.years })),
+  ];
   return {
     roundSize,
     preferenceBasis,
     investment,
     fraction,
     investorExit: Math.max(0, number(timing?.entitlement)) * fraction,
-    investorClosing: Math.max(0, number(timing?.closingCash)) * fraction,
+    investorClosing,
     investorDeferred: Math.max(0, number(deferred)) * fraction,
     investorExpected: Math.max(0, number(timing?.expectedPresentValue)) * fraction,
+    holdingPeriodYears,
+    investorTranches,
+    irrCashFlows,
+    grossIrr: computeAnnualizedIrr(irrCashFlows),
   };
+}
+
+export function computeAnnualizedIrr(cashFlows) {
+  const normalized = (Array.isArray(cashFlows) ? cashFlows : [])
+    .map((flow) => ({ amount: number(flow?.amount), time: Math.max(0, number(flow?.time)) }))
+    .filter((flow) => Math.abs(flow.amount) > EPSILON);
+  if (!normalized.some((flow) => flow.amount < 0) || !normalized.some((flow) => flow.amount > 0)) return null;
+
+  const npv = (rate) => normalized.reduce((sum, flow) => (
+    sum + flow.amount / Math.exp(Math.log1p(rate) * flow.time)
+  ), 0);
+  let low = -0.999999;
+  let high = 1;
+  if (npv(low) < 0) return null;
+  while (npv(high) > 0 && high < 1_000_000) high = high * 2 + 1;
+  if (npv(high) > 0) return null;
+  for (let iteration = 0; iteration < 200; iteration += 1) {
+    const midpoint = (low + high) / 2;
+    if (npv(midpoint) > 0) low = midpoint;
+    else high = midpoint;
+  }
+  const result = (low + high) / 2;
+  return Math.abs(result) < 1e-12 ? 0 : result;
 }
 
 export function computeWaterfall(stakeholders, proceeds) {

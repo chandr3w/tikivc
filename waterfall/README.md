@@ -17,12 +17,15 @@ The default Airtable model uses Bending Spoons' announced August 2026 all-cash a
 - Buyer stock, purchase-price and indemnity escrows, representative expense funds, seller notes, earnouts, rollover equity, and other tranches
 - Per-tranche choice between closing-pro-rata allocation and an updated cumulative waterfall; same-time cumulative tranches are solved together
 - Probability-weighted present value for escrow, stock, notes, earnouts, rollover, and other deferred streams
+- Per-class modeled gross DPI and annualized IRR using editable investment-to-exit periods and actual tranche timing
 
 The waterfall exhaustively enumerates preference and conversion combinations for up to 12 elective classes and uses deterministic best-response elections for larger cap tables. It applies senior tiers in order, shares an underfunded tier pro rata by claim amount, then solves residual common-equivalent value with in-the-money option spread by binary search. Each consideration tranche can use the initial closing-payment share or an updated cumulative waterfall after crediting prior payments. Same-time cumulative tranches are allocated simultaneously, and overlapping eligibility constraints use an integer-cent capacity solver with proportional balancing and explicit reporting of any value that cannot legally be allocated. Results use nonnegative largest-remainder cent reconciliation.
 
 Universal pari passu applies to preferred stock classes, not to common or outstanding convertible debt. Standard SAFEs retain their contractual cash-out claim and share the preferred tier when the setting is on. Outstanding notes retain individual debt-senior treatment; a note repaid at closing should ordinarily also appear in the enterprise-to-equity bridge rather than be double-counted as a holder claim.
 
 SAFE and note rows model a specified cash-out claim, as-converted share count and seniority. They do not derive conversion shares from valuation caps, discounts, accrued note interest or document-specific definitions; those figures should be calculated from the governing instrument and entered directly.
+
+Gross DPI and IRR use nominal modeled consideration, including buyer stock, rollover and contingent value. Those instruments are not realized fund distributions until monetized. The preset holding periods are editable financing-date approximations; reported fund returns should use actual dated cash flows.
 
 ## Run locally
 
