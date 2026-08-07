@@ -1,7 +1,7 @@
-import { applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=19";
-import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=19";
+import { applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=20";
+import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=20";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v19";
+const STORAGE_KEY = "tiki-exit-waterfall-v20";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");

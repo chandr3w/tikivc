@@ -156,7 +156,7 @@ export const PRESETS = {
     stakeholders: [
       cleanHolder({ id: "founders", name: "Founders", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 60_000_000 }),
       cleanHolder({ id: "employees", name: "Employees and other common holders", className: "Employee common", category: "employee", securityType: "common", shares: 20_000_000 }),
-      cleanHolder({ id: "series-a", name: "Series A investors", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 20_000_000, invested: 20_000_000, roundSize: 20_000_000, investorInvestment: 20_000_000, seniority: 1 }),
+      cleanHolder({ id: "series-a", name: "Series A investors", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 20_000_000, invested: 20_000_000, roundSize: 20_000_000, investorInvestment: 20_000_000, holdingPeriodYears: 5, seniority: 1 }),
     ],
   },
   airtable: {
@@ -383,10 +383,10 @@ export const PRESETS = {
       cleanHolder({ id: "founders", name: "Founders", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 30_000_000 }),
       cleanHolder({ id: "employees", name: "Employee common & RSUs", className: "Employee equity", category: "employee", securityType: "rsu", shares: 5_000_000 }),
       cleanHolder({ id: "options", name: "Options", className: "Options", category: "employee", securityType: "option", shares: 10_000_000, strike: 0.5, eligiblePercent: 75, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 1, seniority: 3 }),
-      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 1, seniority: 2, participatingPreferred: true, cappedParticipation: true, participation: "capped", capMultiple: 3 }),
-      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 2, seniority: 1, antiDilution: true, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
-      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 2, seniority: 1 }),
+      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 10_000_000, invested: 5_000_000, holdingPeriodYears: 10, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 1, seniority: 3 }),
+      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 15_000_000, invested: 15_000_000, holdingPeriodYears: 7, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 1, seniority: 2, participatingPreferred: true, cappedParticipation: true, participation: "capped", capMultiple: 3 }),
+      cleanHolder({ id: "series-b1", name: "Series B lead", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 7_000_000, invested: 14_000_000, holdingPeriodYears: 4, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 2, seniority: 1, antiDilution: true, ratchetType: "weighted-average", originalPrice: 2, downRoundPrice: 1.25, preRoundShares: 70_000_000, newMoney: 10_000_000 }),
+      cleanHolder({ id: "series-b2", name: "Series B syndicate", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 3_000_000, invested: 6_000_000, holdingPeriodYears: 4, preferenceEnabled: true, useSharedTerms: false, preferenceMultiple: 2, seniority: 1 }),
     ],
   },
 };

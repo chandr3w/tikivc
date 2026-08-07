@@ -875,6 +875,11 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
     assert.ok(Math.abs(closingTotal + deferredTotal - payoutTotal) < 0.05, `${presetName} consideration conservation`);
     assert.ok(result.rows.every((row) => [row.timing.entitlement, row.timing.closingCash, row.timing.expectedPresentValue, row.deferred].every(Number.isFinite)), `${presetName} finite holder results`);
     assert.ok(model.peopleCohorts.every((cohort) => Object.values(computePeopleCohortOutcome(cohort, result.waterfall.pricePerShare, model.deal.discountRate)).filter((value) => typeof value === "number").every(Number.isFinite)), `${presetName} finite people results`);
+    result.rows.filter((row) => row.holder.investorInvestment > 0).forEach((row) => {
+      const attribution = computeInvestorAttribution(row.holder, row.timing, row.deferred, model.tranches);
+      assert.ok(attribution.holdingPeriodYears > 0, `${presetName} populated investor holding period`);
+      assert.ok(Number.isFinite(attribution.grossIrr), `${presetName} populated investor IRR`);
+    });
   }
 }
 
