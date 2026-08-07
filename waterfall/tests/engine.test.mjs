@@ -230,7 +230,9 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(airtable.peopleCohorts.length, 8);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "founders").shares, 12_000_000);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "employee-common").shares, 9_981_692);
-  assert.equal(airtable.stakeholders.filter((holder) => ["founder", "employee"].includes(holder.category)).reduce((sum, holder) => sum + holder.shares, 0), 21_981_692);
+  assert.equal(airtable.stakeholders.filter((holder) => ["founder", "employee"].includes(holder.category)).reduce((sum, holder) => sum + holder.shares, 0), 22_649_087);
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-ff").category, "founder");
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-ff").securityType, "common");
   assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee").strike, 32.79);
   assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "series-f-employee").exercisedPercent, 50);
   assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "growth-employee").strike, 62.64);

@@ -161,7 +161,7 @@ export const PRESETS = {
       preset: "airtable",
       title: "Airtable: announced acquisition",
       description: "Evidence-based best estimate of Bending Spoons' announced all-cash acquisition, using filing-derived class counts, original issue prices and the documented 1× pari passu preference stack.",
-      asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. The default bridge therefore uses $965M of cash and no undisclosed fees, escrows or contingent consideration. Filing-derived shares and original issue prices are modeled separately for Seed through Series F; 1× non-participating preferences rank pari passu and every class elects its financially optimal treatment. Public information discloses 21,981,692 aggregate common shares but not the founder split, so 12M founder shares and 9,981,692 employee/other common shares remain an editable midpoint estimate. Employee rows are normalized 100K-award scenarios, not headcount populations. Exercise rates decline by entry stage; the 2023+ row assumes 25% of vested options were exercised. A 1× cost-recovery make-whole on exercised shares is a modeled transaction-protection assumption, not a disclosed Airtable term.",
+      asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. The default bridge therefore uses $965M of cash and no undisclosed fees, escrows or contingent consideration. Filing-derived shares and original issue prices are modeled separately for Seed through Series F; 1× non-participating preferences rank pari passu and every class elects its financially optimal treatment. Public information discloses 21,981,692 aggregate common shares but not the founder split, so 12M founder shares and 9,981,692 employee/other common shares remain an editable midpoint estimate. The additional 667,395 Series FF shares are founders preferred issued at formation; because no separate exit preference is disclosed, the model treats them as common-like founder equity. Employee rows are normalized 100K-award scenarios, not headcount populations. Exercise rates decline by entry stage; the 2023+ row assumes 25% of vested options were exercised. A 1× cost-recovery make-whole on exercised shares is a modeled transaction-protection assumption, not a disclosed Airtable term.",
       sources: [
         {
           label: "Axios: announced Airtable acquisition",
@@ -171,7 +171,7 @@ export const PRESETS = {
         {
           label: "Notice.co Airtable cap-table report",
           url: "https://notice-reports.s3.amazonaws.com/Airtable%20Report%202024.12.24_16.17.16.pdf",
-          note: "The December 2024 report compiles corporate filings into 58,734,171 outstanding shares, class-level original issue prices and 1× pari passu non-participating preferences. Its community-sourced 409A history is used only to anchor illustrative employee strikes.",
+          note: "The December 2024 report compiles corporate filings into 58,734,171 outstanding shares, including 667,395 Series FF shares issued at formation, plus class-level original issue prices and 1× pari passu non-participating preferences. Its community-sourced 409A history is used only to anchor illustrative employee strikes.",
         },
         {
           label: "Airtable: company and founders",
@@ -247,7 +247,7 @@ export const PRESETS = {
     tranches: zeroTranches(),
     peopleCohorts: airtablePeopleCohorts(),
     stakeholders: [
-      cleanHolder({ id: "founders", name: "Airtable founders — Howie Liu, Andrew Ofstad and Emmett Nicholas (modeled)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 12_000_000, displayOrder: 0 }),
+      cleanHolder({ id: "founders", name: "Airtable founders: Howie Liu, Andrew Ofstad and Emmett Nicholas (modeled)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 12_000_000, displayOrder: 0 }),
       cleanHolder({ id: "employee-common", name: "Employees and other common holders (modeled residual)", className: "Employee and other common", series: "common", category: "employee", securityType: "common", shares: 9_981_692, displayOrder: 0.5 }),
       cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 3_185_182, invested: 2_200_005, roundSize: 2_200_005, investorInvestment: 2_200_005, seniority: 1, displayOrder: 1 }),
       cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 5_654_062, invested: 7_638_638, roundSize: 7_638_638, investorInvestment: 7_638_638, seniority: 1, displayOrder: 2 }),
@@ -259,7 +259,7 @@ export const PRESETS = {
       cleanHolder({ id: "series-d", name: "Series D preferred", className: "Series D preferred", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 189_999_360, roundSize: 189_999_360, investorInvestment: 189_999_360, seniority: 1, displayOrder: 5 }),
       cleanHolder({ id: "series-e", name: "Series E preferred", className: "Series E preferred", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 334_998_949, roundSize: 334_998_949, investorInvestment: 334_998_949, seniority: 1, displayOrder: 6 }),
       cleanHolder({ id: "series-f", name: "Series F preferred", className: "Series F preferred", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 785_016_654, roundSize: 785_016_654, investorInvestment: 785_016_654, seniority: 1, displayOrder: 7 }),
-      cleanHolder({ id: "series-ff", name: "Series FF preferred (basis not disclosed)", className: "Series FF preferred", series: "other", securityType: "preferred", shares: 667_395, invested: 0, roundSize: 0, investorInvestment: 0, useSharedTerms: false, preferenceEnabled: false, optimalConversion: true, seniority: 1, displayOrder: 8 }),
+      cleanHolder({ id: "series-ff", name: "Founder FF stock issued at formation", className: "Founder FF (common-like)", series: "formation", category: "founder", securityType: "common", shares: 667_395, displayOrder: 0.2 }),
     ],
   },
   brex: {

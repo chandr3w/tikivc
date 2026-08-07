@@ -1,7 +1,7 @@
-import { allocateConsideration, applySharedTerms, computeEquityBridge, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=12";
-import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=12";
+import { allocateConsideration, applySharedTerms, computeEquityBridge, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=13";
+import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=13";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v12";
+const STORAGE_KEY = "tiki-exit-waterfall-v13";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -449,6 +449,7 @@ function renderDialogs() {
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
     ${explainer("Investor round view", "Each investor row represents a financing class. Total round size is the class-level preference basis. The modeled investor check controls the proportional share of that class shown in investor returns; set it equal to round size to model the full syndicate.")}
     ${explainer("Founders versus employees", "Founder common is a cap-table security and participates in the shareholder waterfall. Employee rows are normalized 100K-award scenarios, not population totals. Airtable's filings disclose aggregate common but not founder ownership, so the founder/employee split is an editable midpoint estimate.")}
+    ${state.meta?.preset === "airtable" ? explainer("Founder FF stock", "Airtable's February 2013 capitalization includes 667,395 shares of Series FF, or 0.7% of outstanding shares. FF is founders preferred: common-like founder equity with a conversion feature that can facilitate limited founder secondary liquidity in a later financing. The available source does not disclose a separate issue price or liquidation preference; the simulator therefore assigns these shares to founders and models them as common at exit.") : ""}
     ${explainer("Employee protection", "The exercised-share recovery floor is a personal make-whole overlay: it fills any gap between gross common proceeds and the selected multiple of exercise cost. It is not deducted from the shareholder waterfall because public information does not disclose the protected population or total pool. Add a seller-funded carveout to the deal bridge if modeling an aggregate funded pool. Retention is discounted separately as buyer-funded compensation.")}
     ${explainer("Airtable employee assumptions", "Historical 409A marks in the December 2024 cap-table report anchor illustrative strikes. Exercise rates decline by entry stage; the 2023+ example assumes 25% of vested options were exercised. Exercised shares receive a modeled 1× cost-recovery floor, while unexercised options receive only positive spread. These are evidence-informed house assumptions, not disclosed Airtable deal terms.")}
     ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. ${state.terms.pariPassu ? "The universal pari passu setting is on, so preferred classes occupy the same tier." : "The universal pari passu setting is off, so each preferred class uses its selected seniority."} Tier 1 pays first.` : "Liquidation preference and pari passu are off in the clean default. Eligible securities share value on an as-converted common basis.")}
