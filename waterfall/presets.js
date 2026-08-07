@@ -69,15 +69,33 @@ const standardPeopleCohorts = () => [
   { id: "growth-employee", label: "Employee joining in 2023+", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 62.64, eligiblePercent: 75, alreadyExercised: false, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
 ];
 
+const airtablePeopleCohorts = () => {
+  const exerciseByStage = {
+    "seed-employee": 100,
+    "series-a-employee": 100,
+    "series-b-employee": 95,
+    "series-c-employee": 90,
+    "series-d-employee": 75,
+    "series-e-employee": 60,
+    "series-f-employee": 50,
+    "growth-employee": 25,
+  };
+  return standardPeopleCohorts().map((cohort) => ({
+    ...cohort,
+    exercisedPercent: exerciseByStage[cohort.id],
+    recoveryFloorMultiple: 1,
+  }));
+};
+
 const brexPeopleCohorts = () => [
-  { id: "brex-series-a-employee", label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0.10, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-series-b-employee", label: "Employee joining at Series B", entryStage: "series-b", equityType: "option", grantShares: 100_000, strike: 0.50, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-series-c-employee", label: "Employee joining at Series C", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 3.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-series-c2-employee", label: "Employee joining at Series C-2", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 6.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-2020-employee", label: "Employee joining in 2020", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 7.50, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-series-d-employee", label: "Employee joining at Series D", entryStage: "series-d", equityType: "option", grantShares: 100_000, strike: 18.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-series-d2-employee", label: "Employee joining at Series D-2", entryStage: "series-e", equityType: "option", grantShares: 100_000, strike: 30.00, eligiblePercent: 100, alreadyExercised: true, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
-  { id: "brex-2023-employee", label: "Employee joining in 2023+", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 20.00, eligiblePercent: 75, alreadyExercised: false, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-a-employee", label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0.10, eligiblePercent: 100, exercisedPercent: 100, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-b-employee", label: "Employee joining at Series B", entryStage: "series-b", equityType: "option", grantShares: 100_000, strike: 0.50, eligiblePercent: 100, exercisedPercent: 100, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-c-employee", label: "Employee joining at Series C", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 3.00, eligiblePercent: 100, exercisedPercent: 95, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-c2-employee", label: "Employee joining at Series C-2", entryStage: "series-c", equityType: "option", grantShares: 100_000, strike: 6.00, eligiblePercent: 100, exercisedPercent: 90, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-2020-employee", label: "Employee joining in 2020", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 7.50, eligiblePercent: 100, exercisedPercent: 80, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-d-employee", label: "Employee joining at Series D", entryStage: "series-d", equityType: "option", grantShares: 100_000, strike: 18.00, eligiblePercent: 100, exercisedPercent: 65, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-series-d2-employee", label: "Employee joining at Series D-2", entryStage: "series-e", equityType: "option", grantShares: 100_000, strike: 30.00, eligiblePercent: 100, exercisedPercent: 50, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
+  { id: "brex-2023-employee", label: "Employee joining in 2023+", entryStage: "growth", equityType: "option", grantShares: 100_000, strike: 20.00, eligiblePercent: 75, exercisedPercent: 25, recoveryFloorMultiple: 1, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 },
 ];
 
 const sharedTerms = (overrides = {}) => ({
@@ -142,8 +160,8 @@ export const PRESETS = {
     meta: {
       preset: "airtable",
       title: "Airtable: announced acquisition",
-      description: "A clean as-converted model for Bending Spoons' announced all-cash acquisition, separating modeled founder common from employee equity and keeping undisclosed employee protections at zero.",
-      asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. Modeled: $965M cash bridge, 1% seller transaction expenses, a 1% purchase-price-adjustment escrow, a 0.5% RWI-style indemnity retention and a $500K representative fund. No preference, pari passu, earnout, rollover, seller note, debt, management carveout, broad employee bonus or acceleration is assumed. Public filings disclose 21,981,692 aggregate common shares but not founder ownership; the preset allocates 12M to Airtable's three founders and the 9,981,692 residual to employees and other common holders solely as a transparent estimate. Employee cohort strikes use reported historical 409A common values.",
+      description: "Evidence-based best estimate of Bending Spoons' announced all-cash acquisition, using filing-derived class counts, original issue prices and the documented 1× pari passu preference stack.",
+      asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. The default bridge therefore uses $965M of cash and no undisclosed fees, escrows or contingent consideration. Filing-derived shares and original issue prices are modeled separately for Seed through Series F; 1× non-participating preferences rank pari passu and every class elects its financially optimal treatment. Public information discloses 21,981,692 aggregate common shares but not the founder split, so 12M founder shares and 9,981,692 employee/other common shares remain an editable midpoint estimate. Employee rows are normalized 100K-award scenarios, not headcount populations. Exercise rates decline by entry stage; the 2023+ row assumes 25% of vested options were exercised. A 1× cost-recovery make-whole on exercised shares is a modeled transaction-protection assumption, not a disclosed Airtable term.",
       sources: [
         {
           label: "Axios: announced Airtable acquisition",
@@ -153,7 +171,7 @@ export const PRESETS = {
         {
           label: "Notice.co Airtable cap-table report",
           url: "https://notice-reports.s3.amazonaws.com/Airtable%20Report%202024.12.24_16.17.16.pdf",
-          note: "The December 2024 report compiles corporate filings into 58,734,171 outstanding shares across common and Seed through Series F classes. These share counts drive the preset's round-level ownership estimates.",
+          note: "The December 2024 report compiles corporate filings into 58,734,171 outstanding shares, class-level original issue prices and 1× pari passu non-participating preferences. Its community-sourced 409A history is used only to anchor illustrative employee strikes.",
         },
         {
           label: "Airtable: company and founders",
@@ -219,41 +237,37 @@ export const PRESETS = {
       debt: 0,
       debtLike: 0,
       workingCapital: 0,
-      transactionFees: 22_500_000,
+      transactionFees: 0,
       bonuses: 0,
       transferTaxes: 0,
       otherAdjustment: 0,
       discountRate: 12,
     },
-    terms: sharedTerms(),
-    tranches: [
-      { id: "buyer-stock", label: "Buyer stock", type: "stock", amount: 0, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
-      { id: "ppa-escrow", label: "Purchase-price adjustment escrow", type: "escrow", amount: 22_500_000, treatment: "included", eligibility: "escrow", expectedPercent: 99, years: 0.25 },
-      { id: "indemnity-escrow", label: "RWI retention / indemnity escrow", type: "escrow", amount: 11_250_000, treatment: "included", eligibility: "escrow", expectedPercent: 98, years: 1.5 },
-      { id: "expense-fund", label: "Stockholder representative expense fund", type: "escrow", amount: 500_000, treatment: "included", eligibility: "escrow", expectedPercent: 80, years: 2 },
-      { id: "seller-note", label: "Seller note", type: "note", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 95, years: 2 },
-      { id: "earnout", label: "Earnout / contingent value", type: "earnout", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 50, years: 2 },
-      { id: "rollover", label: "Rollover equity", type: "rollover", amount: 0, treatment: "included", eligibility: "deferred", expectedPercent: 85, years: 4 },
-    ],
-    peopleCohorts: standardPeopleCohorts(),
+    terms: sharedTerms({ liquidationPreference: true, pariPassu: true, preferenceMultiple: 1 }),
+    tranches: zeroTranches(),
+    peopleCohorts: airtablePeopleCohorts(),
     stakeholders: [
       cleanHolder({ id: "founders", name: "Airtable founders — Howie Liu, Andrew Ofstad and Emmett Nicholas (modeled)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 12_000_000, displayOrder: 0 }),
       cleanHolder({ id: "employee-common", name: "Employees and other common holders (modeled residual)", className: "Employee and other common", series: "common", category: "employee", securityType: "common", shares: 9_981_692, displayOrder: 0.5 }),
-      cleanHolder({ id: "seed", name: "Seed investors (Caffeinated, Freestyle, DCVC and others)", className: "Seed (converted common)", series: "seed", securityType: "preferred", shares: 3_852_577, invested: 3_000_000, roundSize: 3_000_000, investorInvestment: 3_000_000, preferenceMultiple: 0, seniority: 7, displayOrder: 1 }),
-      cleanHolder({ id: "series-a", name: "Series A investors (CRV and angels)", className: "Series A (converted common)", series: "series-a", securityType: "preferred", shares: 6_312_009, invested: 7_600_000, roundSize: 7_600_000, investorInvestment: 7_600_000, preferenceMultiple: 0, seniority: 6, displayOrder: 2 }),
-      cleanHolder({ id: "series-b", name: "Series B investors (CRV, Caffeinated, Freestyle and Slow)", className: "Series B (converted common)", series: "series-b", securityType: "preferred", shares: 11_391_392, invested: 59_000_000, roundSize: 59_000_000, investorInvestment: 59_000_000, preferenceMultiple: 0, seniority: 5, displayOrder: 3 }),
-      cleanHolder({ id: "series-c", name: "Series C investors (Thrive, Benchmark, Coatue and syndicate)", className: "Series C (converted common)", series: "series-c", securityType: "preferred", shares: 4_512_756, invested: 100_000_000, roundSize: 100_000_000, investorInvestment: 100_000_000, preferenceMultiple: 0, seniority: 4, displayOrder: 4 }),
-      cleanHolder({ id: "series-d", name: "Series D investors (Thrive, Benchmark, Coatue, D1 and others)", className: "Series D (converted common)", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 185_000_000, roundSize: 185_000_000, investorInvestment: 185_000_000, preferenceMultiple: 0, seniority: 3, displayOrder: 5 }),
-      cleanHolder({ id: "series-e", name: "Series E investors (Greenoaks, WndrCo and existing investors)", className: "Series E (converted common)", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 270_000_000, roundSize: 270_000_000, investorInvestment: 270_000_000, preferenceMultiple: 0, seniority: 2, displayOrder: 6 }),
-      cleanHolder({ id: "series-f", name: "Series F investors (XN and syndicate)", className: "Series F (converted common)", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 735_000_000, roundSize: 735_000_000, investorInvestment: 735_000_000, preferenceMultiple: 0, seniority: 1, displayOrder: 7 }),
+      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 3_185_182, invested: 2_200_005, roundSize: 2_200_005, investorInvestment: 2_200_005, seniority: 1, displayOrder: 1 }),
+      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 5_654_062, invested: 7_638_638, roundSize: 7_638_638, investorInvestment: 7_638_638, seniority: 1, displayOrder: 2 }),
+      cleanHolder({ id: "series-a1", name: "Series A-1 preferred", className: "Series A-1 preferred", series: "series-a", securityType: "preferred", shares: 657_947, invested: 799_998, roundSize: 799_998, investorInvestment: 799_998, seniority: 1, displayOrder: 2.1 }),
+      cleanHolder({ id: "series-b", name: "Series B preferred", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 6_794_182, invested: 21_559_978, roundSize: 21_559_978, investorInvestment: 21_559_978, seniority: 1, displayOrder: 3 }),
+      cleanHolder({ id: "series-b1", name: "Series B-1 preferred", className: "Series B-1 preferred", series: "series-b", securityType: "preferred", shares: 4_597_210, invested: 35_849_963, roundSize: 35_849_963, investorInvestment: 35_849_963, seniority: 1, displayOrder: 3.1 }),
+      cleanHolder({ id: "series-c", name: "Series C preferred", className: "Series C preferred", series: "series-c", securityType: "preferred", shares: 3_854_617, invested: 103_024_661, roundSize: 103_024_661, investorInvestment: 103_024_661, seniority: 1, displayOrder: 4 }),
+      cleanHolder({ id: "series-c1", name: "Series C-1 preferred", className: "Series C-1 preferred", series: "series-c", securityType: "preferred", shares: 658_139, invested: 5_299_993, roundSize: 5_299_993, investorInvestment: 5_299_993, seniority: 1, displayOrder: 4.1 }),
+      cleanHolder({ id: "series-d", name: "Series D preferred", className: "Series D preferred", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 189_999_360, roundSize: 189_999_360, investorInvestment: 189_999_360, seniority: 1, displayOrder: 5 }),
+      cleanHolder({ id: "series-e", name: "Series E preferred", className: "Series E preferred", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 334_998_949, roundSize: 334_998_949, investorInvestment: 334_998_949, seniority: 1, displayOrder: 6 }),
+      cleanHolder({ id: "series-f", name: "Series F preferred", className: "Series F preferred", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 785_016_654, roundSize: 785_016_654, investorInvestment: 785_016_654, seniority: 1, displayOrder: 7 }),
+      cleanHolder({ id: "series-ff", name: "Series FF preferred (basis not disclosed)", className: "Series FF preferred", series: "other", securityType: "preferred", shares: 667_395, invested: 0, roundSize: 0, investorInvestment: 0, useSharedTerms: false, preferenceEnabled: false, optimalConversion: true, seniority: 1, displayOrder: 8 }),
     ],
   },
   brex: {
     meta: {
       preset: "brex",
       title: "Brex: completed acquisition",
-      description: "Capital One's completed cash-and-stock acquisition using disclosed closing consideration, with a Brex-specific employee cohort model and separate exercised-share versus unexercised-option treatment.",
-      asOf: "Disclosed at closing on April 7, 2026: about $2.56B cash plus 10.65M Capital One shares valued near $1.9B, or about $4.46B total consideration before post-closing adjustments. Modeled: 100M fully diluted Brex units, 0x liquidation preferences and employee strike estimates informed by Brex's disclosed financing valuations. Brex's actual 409A history and option-by-option merger treatment are not public. Exercised cohorts receive full common proceeds; unexercised cohorts receive only positive spread over strike.",
+      description: "Capital One's completed cash-and-stock acquisition using disclosed closing consideration and a financing-class model calibrated to the merger's reported Series D and D-2 proceeds.",
+      asOf: "Closed April 7, 2026. Capital One disclosed $2.56B cash plus 10,646,306 shares worth $1.929B at the $181.15 closing price, or $4.489B total fair value. The preset derives a 354.1M-share capitalization from Brex's $12.3B Series D-2 valuation and $34.73595 issue price, then uses ClearList's class-level financing amounts and preferred prices. This reproduces the disclosed $22.57881 Series D and $34.73595 Series D-2 proceeds as 1× preferences. Founder ownership uses Forbes' January 2022 estimate of 14% each; the remaining common is employees, former employees and other holders. All derived ownership and employee exercise inputs remain editable.",
       sources: [
         {
           label: "Capital One closing Form 8-K",
@@ -261,9 +275,9 @@ export const PRESETS = {
           note: "Capital One disclosed about $2.56B of cash and 10,646,306 Capital One shares at closing, subject to a customary post-closing adjustment.",
         },
         {
-          label: "Capital One acquisition announcement",
-          url: "https://www.capitalone.com/about/newsroom/capital-one-to-acquire-brex/",
-          note: "The January 22, 2026 announcement valued the transaction at $5.15B in a combination of stock and cash.",
+          label: "Capital One Form 8937 attachment",
+          url: "https://investor.capitalone.com/static-files/4845bdc7-8508-4364-b508-5e93ab3c2833",
+          note: "The tax disclosure reports $22.57881 per Series D share, $34.73595 per Series D-2 share and a $181.15 Capital One closing price.",
         },
         {
           label: "Brex Series D-2 announcement",
@@ -271,9 +285,14 @@ export const PRESETS = {
           note: "Brex disclosed a $300M Series D-2 at a $12.3B valuation. This financing reference does not disclose the closing cap table used by the merger.",
         },
         {
-          label: "TechCrunch: Brex financing history",
-          url: "https://techcrunch.com/2019/06/11/brex-series-c2/",
-          note: "Reports Brex's $25M Series A valuation, $220M Series B valuation and later financing history used to anchor the modeled early employee strike schedule.",
+          label: "ClearList Q4 2021 Brex report",
+          url: "https://www.clearlist.com/wp-content/uploads/2021/10/Q4_2021_Recon_Report.pdf",
+          note: "Reports class-level investment amounts, preferred prices and pari passu 0–1× liquidation terms for Series A through D.",
+        },
+        {
+          label: "Forbes: Brex founder ownership estimate",
+          url: "https://www.forbes.com/sites/elizahaverstock/2022/01/14/two-friends-who-met-on-twitter-in-high-school-are-latest-under-30-billionaires/",
+          note: "Forbes estimated Henrique Dubugras and Pedro Franceschi each owned 14% after the Series D-2 financing. The preset carries that estimate to closing without assuming later dilution.",
         },
         {
           label: "Capital One Brex resale prospectus",
@@ -284,7 +303,7 @@ export const PRESETS = {
     },
     deal: {
       name: "Brex / Capital One",
-      enterpriseValue: 4_460_000_000,
+      enterpriseValue: 4_488_578_332,
       cash: 0,
       debt: 0,
       debtLike: 0,
@@ -295,19 +314,22 @@ export const PRESETS = {
       otherAdjustment: 0,
       discountRate: 12,
     },
-    terms: sharedTerms(),
+    terms: sharedTerms({ liquidationPreference: true, pariPassu: true, preferenceMultiple: 1 }),
     peopleCohorts: brexPeopleCohorts(),
     tranches: [
-      { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_900_000_000, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
+      { id: "buyer-stock", label: "Capital One stock", type: "stock", amount: 1_928_578_332, treatment: "included", eligibility: "all", expectedPercent: 100, years: 0 },
       ...zeroTranches().slice(1),
     ],
     stakeholders: [
-      cleanHolder({ id: "henrique", name: "Henrique Dubugras (modeled)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 12_000_000 }),
-      cleanHolder({ id: "pedro", name: "Pedro Franceschi (modeled)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 12_000_000 }),
-      cleanHolder({ id: "employees", name: "Employees and former employees (modeled)", className: "RSUs / restricted stock", category: "employee", securityType: "rsu", shares: 20_000_000 }),
-      cleanHolder({ id: "options", name: "Employee option pool (modeled)", className: "Options", category: "employee", securityType: "option", shares: 8_000_000, strike: 3, escrowEligible: false, deferredEligible: false }),
-      cleanHolder({ id: "early-investors", name: "Early venture investors (modeled)", className: "Common stock", securityType: "common", shares: 22_000_000 }),
-      cleanHolder({ id: "growth-investors", name: "Growth investors (modeled)", className: "Common stock", securityType: "common", shares: 26_000_000 }),
+      cleanHolder({ id: "henrique", name: "Henrique Dubugras (14% 2022 estimate)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 49_574_000, displayOrder: 0 }),
+      cleanHolder({ id: "pedro", name: "Pedro Franceschi (14% 2022 estimate)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 49_574_000, displayOrder: 0.1 }),
+      cleanHolder({ id: "employees", name: "Employees, former employees and other common (derived residual)", className: "Employee and other common", series: "common", category: "employee", securityType: "common", shares: 87_672_640, displayOrder: 0.5 }),
+      cleanHolder({ id: "brex-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 37_965_784, invested: 6_480_000, roundSize: 6_480_000, investorInvestment: 6_480_000, seniority: 1, displayOrder: 1 }),
+      cleanHolder({ id: "brex-b", name: "Series B preferred", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 42_361_186, invested: 47_270_000, roundSize: 47_270_000, investorInvestment: 47_270_000, seniority: 1, displayOrder: 2 }),
+      cleanHolder({ id: "brex-c", name: "Series C preferred", className: "Series C preferred", series: "series-c", securityType: "preferred", shares: 33_104_944, invested: 163_310_000, roundSize: 163_310_000, investorInvestment: 163_310_000, seniority: 1, displayOrder: 3 }),
+      cleanHolder({ id: "brex-c2", name: "Series C-2 preferred", className: "Series C-2 preferred", series: "series-c", securityType: "preferred", shares: 26_605_809, invested: 285_860_000, roundSize: 285_860_000, investorInvestment: 285_860_000, seniority: 1, displayOrder: 4 }),
+      cleanHolder({ id: "brex-d", name: "Series D preferred", className: "Series D preferred", series: "series-d", securityType: "preferred", shares: 18_605_055, invested: 420_080_000, roundSize: 420_080_000, investorInvestment: 420_080_000, seniority: 1, displayOrder: 5 }),
+      cleanHolder({ id: "brex-d2", name: "Series D-2 preferred", className: "Series D-2 preferred", series: "series-e", securityType: "preferred", shares: 8_636_585, invested: 300_000_000, roundSize: 300_000_000, investorInvestment: 300_000_000, seniority: 1, displayOrder: 6 }),
     ],
   },
   venture: {
@@ -375,7 +397,7 @@ export function blankStakeholder(id) {
 }
 
 export function blankPeopleCohort(id) {
-  return { id, label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0, eligiblePercent: 100, alreadyExercised: false, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 };
+  return { id, label: "Employee joining at Series A", entryStage: "series-a", equityType: "option", grantShares: 100_000, strike: 0, eligiblePercent: 100, exercisedPercent: 0, recoveryFloorMultiple: 0, accelerationPercent: 0, transactionBonus: 0, retentionBonus: 0, retentionYears: 2 };
 }
 
 export function blankTranche(id) {

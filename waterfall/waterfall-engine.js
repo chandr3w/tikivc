@@ -25,17 +25,27 @@ export function computePeopleCohortOutcome(cohort, pricePerShare, discountRate =
   const acceleratedShares = (grantShares - vestedShares) * accelerationPercent / 100;
   const eligibleShares = vestedShares + acceleratedShares;
   const strike = Math.max(0, number(cohort.strike));
-  const exerciseCost = eligibleShares * strike;
-  const grossValue = eligibleShares * Math.max(0, number(pricePerShare));
-  const alreadyExercised = cohort.equityType === "common" || cohort.alreadyExercised === true;
-  const equityProceeds = alreadyExercised ? grossValue : Math.max(0, grossValue - exerciseCost);
-  const initialInvestment = alreadyExercised ? exerciseCost : 0;
+  const commonValue = Math.max(0, number(pricePerShare));
+  const exercisedPercent = cohort.equityType === "common"
+    ? 100
+    : Math.max(0, Math.min(100, cohort.exercisedPercent == null ? (cohort.alreadyExercised === true ? 100 : 0) : number(cohort.exercisedPercent)));
+  const exercisedShares = eligibleShares * exercisedPercent / 100;
+  const unexercisedShares = eligibleShares - exercisedShares;
+  const exerciseCost = exercisedShares * strike;
+  const exercisedGrossValue = exercisedShares * commonValue;
+  const unexercisedSpread = unexercisedShares * Math.max(0, commonValue - strike);
+  const grossValue = eligibleShares * commonValue;
+  const equityProceeds = exercisedGrossValue + unexercisedSpread;
+  const initialInvestment = exerciseCost;
+  const recoveryFloorMultiple = Math.max(0, number(cohort.recoveryFloorMultiple));
+  const makeWhole = Math.max(0, exerciseCost * recoveryFloorMultiple - exercisedGrossValue);
+  const alreadyExercised = exercisedPercent === 100;
   const transactionBonus = Math.max(0, number(cohort.transactionBonus));
   const retentionBonus = Math.max(0, number(cohort.retentionBonus));
   const retentionYears = Math.max(0, number(cohort.retentionYears));
   const retentionPresentValue = retentionBonus / ((1 + Math.max(0, number(discountRate)) / 100) ** retentionYears);
-  const expectedValue = equityProceeds + transactionBonus + retentionPresentValue;
-  return { ...cohort, alreadyExercised, vestedShares, acceleratedShares, eligibleShares, exerciseCost, initialInvestment, grossValue, equityProceeds, transactionBonus, retentionBonus, retentionPresentValue, expectedValue };
+  const expectedValue = equityProceeds + makeWhole + transactionBonus + retentionPresentValue;
+  return { ...cohort, alreadyExercised, exercisedPercent, exercisedShares, unexercisedShares, vestedShares, acceleratedShares, eligibleShares, exerciseCost, initialInvestment, grossValue, exercisedGrossValue, unexercisedSpread, equityProceeds, recoveryFloorMultiple, makeWhole, transactionBonus, retentionBonus, retentionPresentValue, expectedValue };
 }
 
 export function computeWaterfall(stakeholders, proceeds) {
