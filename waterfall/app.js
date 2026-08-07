@@ -1,7 +1,7 @@
-import { applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=20";
-import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=20";
+import { applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=22";
+import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=22";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v20";
+const STORAGE_KEY = "tiki-exit-waterfall-v22";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -172,6 +172,12 @@ function renderStakeholderControls() {
 
 function renderSharedTerms() {
   const terms = state.terms;
+  const pariNote = usesPreset("airtable")
+    ? (terms.pariPassu
+      ? "This Airtable preset enables pari passu because the filing-derived charter terms support it. The round-based seniority selections are the fallback if pari passu is turned off."
+      : "Pari passu is off, so the Airtable fallback stack applies from Series F first through Seed last.")
+    : (terms.pariPassu ? "This scenario explicitly enables pari passu." : "Pari passu is off unless selected.");
+  const impactNote = describePariImpact();
   return `<section class="shared-terms" aria-labelledby="shared-terms-title">
     <header class="shared-terms-heading"><div><span class="kicker">blanket settings</span><h3 id="shared-terms-title">Shared transaction terms</h3></div><span>preferred equity + eligibility</span></header>
     <div class="shared-checks">
@@ -202,8 +208,20 @@ function renderSharedTerms() {
       ${terms.antiDilution && terms.ratchetType === "weighted-average" ? inputField({ label: "Down-round new money", value: terms.newMoney, inputType: "money", scope: "terms", field: "newMoney" }) : ""}
       ${terms.antiDilution && terms.ratchetType === "custom" ? inputField({ label: "Share multiplier", value: terms.conversionMultiplier, inputType: "number", scope: "terms", field: "conversionMultiplier" }) : ""}
     </div>
-    <p class="shared-terms-note">Universal preference terms apply to preferred stock classes, not common or outstanding notes. Standard SAFEs retain their contractual claim and rank alongside preferred when pari passu is selected. Notes retain their individual debt-senior terms. ${terms.pariPassu ? (state.meta?.preset === "airtable" ? "This Airtable preset enables pari passu because the filing-derived charter terms support it; clean and newly added models default it off." : "This scenario explicitly enables pari passu.") : "Pari passu is off unless selected."}</p>
+    <p class="shared-terms-note">Universal preference terms apply to preferred stock classes, not common or outstanding notes. Standard SAFEs retain their contractual claim and rank alongside preferred when pari passu is selected. Notes retain their individual debt-senior terms. ${pariNote}${impactNote ? ` ${impactNote}` : ""}</p>
   </section>`;
+}
+
+function describePariImpact() {
+  const sharedPreferred = state.stakeholders.filter((holder) => holder.useSharedTerms !== false && holder.securityType === "preferred");
+  if (!state.terms.liquidationPreference || sharedPreferred.length < 2 || sharedPreferred.length > 12) return "";
+  const current = computeExitModel(state);
+  const alternative = computeExitModel({ ...state, terms: { ...state.terms, pariPassu: !state.terms.pariPassu } });
+  const reallocated = sharedPreferred.reduce((sum, holder) => (
+    sum + Math.abs(number(current.waterfall.payouts[holder.id]) - number(alternative.waterfall.payouts[holder.id]))
+  ), 0) / 2;
+  if (reallocated <= .01) return `At the current ${formatMoney(current.grossProceeds)} waterfall value, this switch does not change payouts because the active preference claims are fully funded or the selected tiers are economically equivalent.`;
+  return `At the current waterfall value, switching pari passu ${state.terms.pariPassu ? "off" : "on"} reallocates ${formatMoney(reallocated)} among preferred classes.`;
 }
 
 function renderConsiderationControls() {
@@ -235,15 +253,18 @@ function renderStakeholderEditor(holder, index) {
   const preferenceSecurity = ["preferred", "safe", "note"].includes(holder.securityType);
   const optionLike = ["option", "warrant"].includes(holder.securityType);
   const roundLabel = seriesLabel(holder.series);
+  const parityApplies = holder.useSharedTerms !== false && state.terms.pariPassu === true && ["preferred", "safe"].includes(holder.securityType);
+  const priorityLabel = parityApplies ? "pari passu" : `seniority ${number(holder.seniority) || "—"}`;
+  const seniorityFieldLabel = parityApplies ? "Fallback seniority when pari passu is off" : "Seniority tier";
   return `
     <details class="editor-row" open>
-      <summary class="editor-summary"><span class="editor-summary-main"><strong>${escapeHtml(holder.name)}</strong><span>${preferenceSecurity ? `${escapeHtml(roundLabel)} · seniority ${number(holder.seniority) || "—"} · ${formatMoney(holder.roundSize)} round` : `${escapeHtml(roundLabel)} · ${formatShares(holder.shares)}`}</span></span></summary>
+      <summary class="editor-summary"><span class="editor-summary-main"><strong>${escapeHtml(holder.name)}</strong><span>${preferenceSecurity ? `${escapeHtml(roundLabel)} · ${escapeHtml(priorityLabel)} · ${formatMoney(holder.roundSize)} round` : `${escapeHtml(roundLabel)} · ${formatShares(holder.shares)}`}</span></span></summary>
       <div class="editor-body"><div class="form-grid">
         ${indexedField(index, "stakeholder", "name", "Stakeholder / class", holder.name, "text", true)}
         ${selectField(index, "stakeholder", "series", "Financing series", holder.series, SERIES_OPTIONS)}
         ${indexedField(index, "stakeholder", "className", "Share class / pool", holder.className || inferredClassName(holder), "text")}
         ${selectField(index, "stakeholder", "securityType", "Security", holder.securityType, [["common","Common stock"],["preferred","Preferred stock"],["safe","SAFE"],["note","Convertible note"],["rsu","RSU / restricted stock"],["option","Option"],["warrant","Warrant"]])}
-        ${preferenceSecurity ? selectField(index, "stakeholder", "seniority", "Seniority tier", String(holder.seniority || 1), SENIORITY_OPTIONS) : ""}
+        ${preferenceSecurity ? selectField(index, "stakeholder", "seniority", seniorityFieldLabel, String(holder.seniority || 1), SENIORITY_OPTIONS) : ""}
         ${indexedField(index, "stakeholder", "shares", "As-converted shares", holder.shares, "shares")}
         ${indexedField(index, "stakeholder", "eligiblePercent", "Vested / eligible", holder.eligiblePercent, "percent")}
         ${optionLike ? indexedField(index, "stakeholder", "strike", "Strike per share", holder.strike, "number") : ""}
@@ -300,13 +321,18 @@ function renderIndividualTerms(holder, index, preferenceSecurity) {
 }
 
 function renderPeopleControls() {
-  const presetNote = state.meta?.preset === "brex"
+  const isBrex = usesPreset("brex");
+  const isAirtable = usesPreset("airtable");
+  const presetLabel = isBrex ? "Brex base case" : (isAirtable ? "Airtable base case" : "Configurable case");
+  const presetNote = isBrex
     ? "Brex's actual 409A and option ledger are not public. The strike and exercise schedule is an editable stage-based estimate; exercised shares receive a modeled 1× cost-recovery floor."
-    : "Historical 409A marks anchor the strikes. The 2023+ example assumes 25% of vested options were exercised, and exercised shares receive a modeled 1× cost-recovery floor.";
+    : (isAirtable
+      ? "Historical 409A marks anchor the strikes. The 2023+ example assumes 25% of vested options were exercised, and exercised shares receive a modeled 1× cost-recovery floor."
+      : "Add only the employee entry cohorts needed for this transaction. Grant size, strike, exercise status, vesting and transaction protection are independently editable.");
   return `
     <div class="panel-heading"><div><span class="kicker">employee protection</span><h2>Employee cohorts</h2></div><span class="panel-total">${state.peopleCohorts.length} cohorts</span></div>
     <p class="panel-note">Founder ownership is modeled in Securities. These are normalized 100K-award scenarios, not employee population totals. Exercise status, vesting and transaction protection remain editable.</p>
-    <div class="assumption-note"><strong>${state.meta?.preset === "brex" ? "Brex base case" : "Airtable base case"}</strong><span>${escapeHtml(presetNote)}</span></div>
+    <div class="assumption-note"><strong>${presetLabel}</strong><span>${escapeHtml(presetNote)}</span></div>
     ${state.peopleCohorts.map(renderPeopleEditor).join("")}
     <button class="button add-row" type="button" data-action="add-cohort">add entry cohort</button>`;
 }
@@ -490,10 +516,10 @@ function renderDialogs() {
     ${explainer("Enterprise-to-equity bridge", "Enterprise value plus available cash, less debt, debt-like items, seller expenses, carve-outs and taxes, plus working-capital and other agreed adjustments. Incremental contingent tranches are then added to gross waterfall value.")}
     ${explainer("Investor round view", "Each investor row represents a financing class. Class preference basis drives the liquidation claim; financing round size is contextual. The modeled investor check controls the proportional share of the class basis shown in investor returns. Public round announcements and charter-derived class basis can differ.")}
     ${explainer("DPI and IRR", "Modeled gross DPI divides nominal attributed proceeds by invested capital. Gross IRR annualizes the same nominal proceeds using the editable investment-to-exit period and each consideration tranche's payment timing. Buyer stock, rollover and contingent value are not realized fund distributions until monetized; use governing dates and actual cash flows for reported fund returns.")}
-    ${explainer("Founders versus employees", "Founder common is a cap-table security and participates in the shareholder waterfall. Employee rows are normalized 100K-award scenarios, not population totals. Airtable's filings disclose aggregate common but not founder ownership, so the founder/employee split is an editable midpoint estimate.")}
-    ${state.meta?.preset === "airtable" ? explainer("Founder FF stock", "Airtable's February 2013 capitalization includes 667,395 shares of Series FF, or 0.7% of outstanding shares. FF is founders preferred: common-like founder equity with a conversion feature that can facilitate limited founder secondary liquidity in a later financing. The available source does not disclose a separate issue price or liquidation preference; the simulator therefore assigns these shares to founders and models them as common at exit.") : ""}
+    ${explainer("Founders versus employees", usesPreset("airtable") ? "Founder common is a cap-table security and participates in the shareholder waterfall. Employee rows are normalized 100K-award scenarios, not population totals. Airtable's filings disclose aggregate common but not founder ownership, so the founder/employee split is an editable midpoint estimate." : "Founder and employee/common ownership are modeled as separate cap-table rows. Employee entry cohorts are scenario analyses rather than population totals and can be added or removed independently.")}
+    ${usesPreset("airtable") ? explainer("Founder FF stock", "Airtable's February 2013 capitalization includes 667,395 shares of Series FF, or 0.7% of outstanding shares. FF is founders preferred: common-like founder equity with a conversion feature that can facilitate limited founder secondary liquidity in a later financing. The available source does not disclose a separate issue price or liquidation preference; the simulator therefore assigns these shares to founders and models them as common at exit.") : ""}
     ${explainer("Employee protection", "The exercised-share recovery floor is a personal make-whole overlay: it fills any gap between gross common proceeds and the selected multiple of exercise cost. It is not deducted from the shareholder waterfall because public information does not disclose the protected population or total pool. Add a seller-funded carveout to the deal bridge if modeling an aggregate funded pool. Retention is discounted separately as buyer-funded compensation.")}
-    ${explainer("Airtable employee assumptions", "Historical 409A marks in the December 2024 cap-table report anchor illustrative strikes. Exercise rates decline by entry stage; the 2023+ example assumes 25% of vested options were exercised. Exercised shares receive a modeled 1× cost-recovery floor, while unexercised options receive only positive spread. These are evidence-informed house assumptions, not disclosed Airtable deal terms.")}
+    ${usesPreset("airtable") ? explainer("Airtable employee assumptions", "Historical 409A marks in the December 2024 cap-table report anchor illustrative strikes. Exercise rates decline by entry stage; the 2023+ example assumes 25% of vested options were exercised. Exercised shares receive a modeled 1× cost-recovery floor, while unexercised options receive only positive spread. These are evidence-informed house assumptions, not disclosed Airtable deal terms.") : ""}
     ${explainer("Priority and pari passu", tiers.length ? `Active preference tiers: ${tiers.join(", ")}. ${state.terms.pariPassu ? "The universal pari passu setting is on, so preferred stock classes—and standard SAFEs with shared terms—occupy the same investor tier." : "The universal pari passu setting is off, so each instrument uses its selected seniority."} Common remains junior. Outstanding notes retain their individual debt-senior treatment. Tier 1 pays first.` : "Liquidation preference and pari passu are off in the clean default. Common participates on an as-converted basis; any outstanding SAFE or note retains its own contractual claim.")}
     ${explainer("Conversion elections", waterfall.stableElection ? (waterfall.electionMethod === "iterative" ? "For more than 12 elective classes, the solver applies deterministic best-response elections until no class can improve by switching. Smaller models exhaustively evaluate every combination. Confirm whether elections occur by holder, series or class vote." : "For up to 12 elective classes, the solver exhaustively evaluates every preference and conversion combination. A class takes preference when conversion would not improve its payout with the other elections held fixed.") : "No stable election set was found. Review the displayed lowest-regret set against the transaction documents.")}
     ${explainer("Participation, caps and split claims", "Non-participating preferred chooses preference or conversion. Fully participating preferred receives its claim and residual participation. Capped participation stops at the selected multiple after preference, prior distributions and—when selected—paid dividends. A class may split claims across two priority tiers; generic prior distributions credit the most senior outstanding claim first.")}
@@ -687,6 +713,7 @@ importFile.addEventListener("change", async () => {
   }
 });
 
+function usesPreset(name) { return state.meta?.preset === name || state.meta?.basePreset === name; }
 function countActiveTranches() { return state.tranches.filter((tranche) => number(tranche.amount) > 0).length; }
 function sharedTermsDescription(holder) {
   if (holder.securityType === "safe") return "Standard SAFE: 1× cash-out versus conversion, on the preferred tier when pari passu is selected. Turn off shared terms for a custom instrument.";

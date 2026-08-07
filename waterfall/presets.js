@@ -129,6 +129,36 @@ const sharedTerms = (overrides = {}) => ({
 });
 
 export const PRESETS = {
+  new: {
+    meta: {
+      preset: "new",
+      title: "New configurable deal",
+      description: "A neutral starting model with editable deal, security, consideration and employee assumptions.",
+      asOf: "Illustrative",
+      sources: [],
+    },
+    deal: {
+      name: "New transaction",
+      enterpriseValue: 100_000_000,
+      cash: 0,
+      debt: 0,
+      debtLike: 0,
+      workingCapital: 0,
+      transactionFees: 0,
+      bonuses: 0,
+      transferTaxes: 0,
+      otherAdjustment: 0,
+      discountRate: 12,
+    },
+    terms: sharedTerms(),
+    tranches: zeroTranches(),
+    peopleCohorts: [],
+    stakeholders: [
+      cleanHolder({ id: "founders", name: "Founders", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 70_000_000 }),
+      cleanHolder({ id: "employees", name: "Employees and other common holders", className: "Employee common", series: "common", category: "employee", securityType: "common", shares: 20_000_000 }),
+      cleanHolder({ id: "series-a", name: "Series A investors", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 10_000_000, invested: 10_000_000, roundSize: 10_000_000, investorInvestment: 10_000_000, holdingPeriodYears: 5, seniority: 1 }),
+    ],
+  },
   clean: {
     meta: {
       preset: "clean",
@@ -252,15 +282,15 @@ export const PRESETS = {
     stakeholders: [
       cleanHolder({ id: "founders", name: "Airtable founders: Howie Liu, Andrew Ofstad and Emmett Nicholas (modeled)", className: "Founder common", series: "formation", category: "founder", securityType: "common", shares: 12_000_000, displayOrder: 0 }),
       cleanHolder({ id: "employee-common", name: "Employees and other common holders (modeled residual)", className: "Employee and other common", series: "common", category: "employee", securityType: "common", shares: 9_981_692, displayOrder: 0.5 }),
-      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 3_185_182, invested: 2_200_005, roundSize: 2_200_005, investorInvestment: 2_200_005, holdingPeriodYears: 12, seniority: 1, displayOrder: 1 }),
-      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 5_654_062, invested: 7_638_638, roundSize: 7_638_638, investorInvestment: 7_638_638, holdingPeriodYears: 11, seniority: 1, displayOrder: 2 }),
-      cleanHolder({ id: "series-a1", name: "Series A-1 preferred", className: "Series A-1 preferred", series: "series-a", securityType: "preferred", shares: 657_947, invested: 799_998, roundSize: 799_998, investorInvestment: 799_998, holdingPeriodYears: 10, seniority: 1, displayOrder: 2.1 }),
-      cleanHolder({ id: "series-b", name: "Series B preferred", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 6_794_182, invested: 21_559_978, roundSize: 21_559_978, investorInvestment: 21_559_978, holdingPeriodYears: 8.4, seniority: 1, displayOrder: 3 }),
-      cleanHolder({ id: "series-b1", name: "Series B-1 preferred", className: "Series B-1 preferred", series: "series-b", securityType: "preferred", shares: 4_597_210, invested: 35_849_963, roundSize: 35_849_963, investorInvestment: 35_849_963, holdingPeriodYears: 8, seniority: 1, displayOrder: 3.1 }),
-      cleanHolder({ id: "series-c", name: "Series C preferred", className: "Series C preferred", series: "series-c", securityType: "preferred", shares: 3_854_617, invested: 103_024_661, roundSize: 103_024_661, investorInvestment: 103_024_661, holdingPeriodYears: 7.7, seniority: 1, displayOrder: 4 }),
-      cleanHolder({ id: "series-c1", name: "Series C-1 preferred", className: "Series C-1 preferred", series: "series-c", securityType: "preferred", shares: 658_139, invested: 5_299_993, roundSize: 5_299_993, investorInvestment: 5_299_993, holdingPeriodYears: 7, seniority: 1, displayOrder: 4.1 }),
-      cleanHolder({ id: "series-d", name: "Series D preferred", className: "Series D preferred", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 189_999_360, roundSize: 189_999_360, investorInvestment: 189_999_360, holdingPeriodYears: 5.9, seniority: 1, displayOrder: 5 }),
-      cleanHolder({ id: "series-e", name: "Series E preferred", className: "Series E preferred", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 334_998_949, roundSize: 270_000_000, investorInvestment: 270_000_000, holdingPeriodYears: 5.4, seniority: 1, displayOrder: 6 }),
+      cleanHolder({ id: "seed", name: "Seed preferred", className: "Seed preferred", series: "seed", securityType: "preferred", shares: 3_185_182, invested: 2_200_005, roundSize: 2_200_005, investorInvestment: 2_200_005, holdingPeriodYears: 12, seniority: 7, displayOrder: 1 }),
+      cleanHolder({ id: "series-a", name: "Series A preferred", className: "Series A preferred", series: "series-a", securityType: "preferred", shares: 5_654_062, invested: 7_638_638, roundSize: 7_638_638, investorInvestment: 7_638_638, holdingPeriodYears: 11, seniority: 6, displayOrder: 2 }),
+      cleanHolder({ id: "series-a1", name: "Series A-1 preferred", className: "Series A-1 preferred", series: "series-a", securityType: "preferred", shares: 657_947, invested: 799_998, roundSize: 799_998, investorInvestment: 799_998, holdingPeriodYears: 10, seniority: 6, displayOrder: 2.1 }),
+      cleanHolder({ id: "series-b", name: "Series B preferred", className: "Series B preferred", series: "series-b", securityType: "preferred", shares: 6_794_182, invested: 21_559_978, roundSize: 21_559_978, investorInvestment: 21_559_978, holdingPeriodYears: 8.4, seniority: 5, displayOrder: 3 }),
+      cleanHolder({ id: "series-b1", name: "Series B-1 preferred", className: "Series B-1 preferred", series: "series-b", securityType: "preferred", shares: 4_597_210, invested: 35_849_963, roundSize: 35_849_963, investorInvestment: 35_849_963, holdingPeriodYears: 8, seniority: 5, displayOrder: 3.1 }),
+      cleanHolder({ id: "series-c", name: "Series C preferred", className: "Series C preferred", series: "series-c", securityType: "preferred", shares: 3_854_617, invested: 103_024_661, roundSize: 103_024_661, investorInvestment: 103_024_661, holdingPeriodYears: 7.7, seniority: 4, displayOrder: 4 }),
+      cleanHolder({ id: "series-c1", name: "Series C-1 preferred", className: "Series C-1 preferred", series: "series-c", securityType: "preferred", shares: 658_139, invested: 5_299_993, roundSize: 5_299_993, investorInvestment: 5_299_993, holdingPeriodYears: 7, seniority: 4, displayOrder: 4.1 }),
+      cleanHolder({ id: "series-d", name: "Series D preferred", className: "Series D preferred", series: "series-d", securityType: "preferred", shares: 3_360_489, invested: 189_999_360, roundSize: 189_999_360, investorInvestment: 189_999_360, holdingPeriodYears: 5.9, seniority: 3, displayOrder: 5 }),
+      cleanHolder({ id: "series-e", name: "Series E preferred", className: "Series E preferred", series: "series-e", securityType: "preferred", shares: 3_131_683, invested: 334_998_949, roundSize: 270_000_000, investorInvestment: 270_000_000, holdingPeriodYears: 5.4, seniority: 2, displayOrder: 6 }),
       cleanHolder({ id: "series-f", name: "Series F preferred", className: "Series F preferred", series: "series-f", securityType: "preferred", shares: 4_191_573, invested: 785_016_654, roundSize: 735_000_000, investorInvestment: 735_000_000, holdingPeriodYears: 4.7, seniority: 1, displayOrder: 7 }),
       cleanHolder({ id: "series-ff", name: "Founder FF stock issued at formation", className: "Founder FF (common-like)", series: "formation", category: "founder", securityType: "common", shares: 667_395, displayOrder: 0.2 }),
     ],

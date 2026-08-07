@@ -357,7 +357,13 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(airtable.peopleCohorts.find((cohort) => cohort.id === "growth-employee").recoveryFloorMultiple, 1);
   assert.equal(airtable.peopleCohorts.every((cohort) => cohort.transactionBonus === 0 && cohort.retentionBonus === 0 && cohort.accelerationPercent === 0), true);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-f").seniority, 1);
-  assert.equal(airtable.stakeholders.find((holder) => holder.id === "seed").seniority, 1);
+  assert.equal(airtable.stakeholders.find((holder) => holder.id === "seed").seniority, 7);
+  assert.equal(holders.filter((holder) => holder.securityType === "preferred").every((holder) => holder.seniority === 1), true);
+  const stackedHolders = applySharedTerms(airtable.stakeholders, { ...airtable.terms, pariPassu: false });
+  assert.deepEqual(stackedHolders.filter((holder) => holder.securityType === "preferred").map((holder) => holder.seniority), [7, 6, 6, 5, 5, 4, 4, 3, 2, 1]);
+  const pariDownside = computeWaterfall(holders, 500_000_000);
+  const stackedDownside = computeWaterfall(stackedHolders, 500_000_000);
+  assert.ok(stackedDownside.payouts["series-f"] > pariDownside.payouts["series-f"] + 1);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-e").roundSize, 270_000_000);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-e").invested, 334_998_949);
   assert.equal(airtable.stakeholders.find((holder) => holder.id === "series-f").roundSize, 735_000_000);
@@ -368,6 +374,16 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.ok(Math.abs(exercisedSeriesF.equityProceeds - 946_877.54) < 0.01);
   assert.ok(Math.abs(exercisedSeriesF.makeWhole - 692_622.46) < 0.01);
   assert.equal(exercisedSeriesF.expectedValue, 1_639_500);
+}
+
+{
+  const model = clonePreset("new");
+  assert.equal(model.meta.preset, "new");
+  assert.equal(model.terms.liquidationPreference, false);
+  assert.equal(model.terms.pariPassu, false);
+  assert.equal(model.stakeholders.length, 3);
+  assert.equal(model.peopleCohorts.length, 0);
+  assert.equal(model.tranches.length, 7);
 }
 
 {
