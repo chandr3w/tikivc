@@ -25,6 +25,8 @@ const GENERAL_SOURCES = [
 let state = normalizeState(loadSavedState() || clonePreset("airtable"));
 let activeInputTab = "deal";
 let activeResultTab = "investors";
+let calculationCacheKey = "";
+let calculationCacheValue = null;
 
 const SERIES_OPTIONS = [
   ["common", "Common / founders"], ["formation", "Formation"], ["pre-seed", "Pre-seed"], ["seed", "Seed"],
@@ -129,10 +131,14 @@ function normalizeState(model) {
 
 function renderAll() {
   presetSelect.value = state.meta?.preset in PRESETS ? state.meta.preset : state.meta?.basePreset || "airtable";
-  document.querySelectorAll(".input-tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === activeInputTab));
+  document.querySelectorAll(".input-tab").forEach((button) => {
+    const active = button.dataset.tab === activeInputTab;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
   renderControls();
   renderResults();
-  renderDialogs();
   saveState();
 }
 
@@ -166,6 +172,7 @@ function renderStakeholderControls() {
     <div class="panel-heading"><div><span class="kicker">priority stack</span><h2>Securities</h2></div><span class="panel-total">${state.stakeholders.length} rows</span></div>
     <p class="panel-note">Add one row per financing class. Preference basis drives the class claim; financing round size is context, while the modeled check attributes an investor's proportional return.</p>
     ${renderSharedTerms()}
+    ${renderEditorTools("security rows")}
     ${state.stakeholders.map(renderStakeholderEditor).join("")}
     <button class="button add-row" type="button" data-action="add-stakeholder">add investor round</button>`;
 }
@@ -215,7 +222,7 @@ function renderSharedTerms() {
 function describePariImpact() {
   const sharedPreferred = state.stakeholders.filter((holder) => holder.useSharedTerms !== false && holder.securityType === "preferred");
   if (!state.terms.liquidationPreference || sharedPreferred.length < 2 || sharedPreferred.length > 12) return "";
-  const current = computeExitModel(state);
+  const current = calculateModel();
   const alternative = computeExitModel({ ...state, terms: { ...state.terms, pariPassu: !state.terms.pariPassu } });
   const reallocated = sharedPreferred.reduce((sum, holder) => (
     sum + Math.abs(number(current.waterfall.payouts[holder.id]) - number(alternative.waterfall.payouts[holder.id]))
@@ -228,6 +235,7 @@ function renderConsiderationControls() {
   return `
     <div class="panel-heading"><div><span class="kicker">form & timing</span><h2>Consideration</h2></div><span class="panel-total">${countActiveTranches()} active</span></div>
     <p class="panel-note">Leave every amount at zero for a clean cash acquisition. Incremental tranches add to bridge equity value.</p>
+    ${renderEditorTools("consideration rows")}
     ${state.tranches.map(renderTrancheEditor).join("")}
     <button class="button add-row" type="button" data-action="add-tranche">add consideration tranche</button>`;
 }
@@ -333,6 +341,7 @@ function renderPeopleControls() {
     <div class="panel-heading"><div><span class="kicker">employee protection</span><h2>Employee cohorts</h2></div><span class="panel-total">${state.peopleCohorts.length} cohorts</span></div>
     <p class="panel-note">Founder ownership is modeled in Securities. These are normalized 100K-award scenarios, not employee population totals. Exercise status, vesting and transaction protection remain editable.</p>
     <div class="assumption-note"><strong>${presetLabel}</strong><span>${escapeHtml(presetNote)}</span></div>
+    ${renderEditorTools("employee cohorts")}
     ${state.peopleCohorts.map(renderPeopleEditor).join("")}
     <button class="button add-row" type="button" data-action="add-cohort">add entry cohort</button>`;
 }
@@ -357,8 +366,17 @@ function renderPeopleEditor(cohort, index) {
   </details>`;
 }
 
+function renderEditorTools(label) {
+  return `<div class="editor-tools" aria-label="${escapeAttribute(label)} display controls"><button class="button" type="button" data-action="collapse-editors">collapse all</button><button class="button" type="button" data-action="expand-editors">expand all</button></div>`;
+}
+
 function calculateModel() {
-  return computeExitModel(state);
+  const key = JSON.stringify([state.deal, state.terms, state.stakeholders, state.tranches]);
+  if (key !== calculationCacheKey) {
+    calculationCacheKey = key;
+    calculationCacheValue = computeExitModel(state);
+  }
+  return calculationCacheValue;
 }
 
 function renderResults() {
@@ -626,7 +644,6 @@ function updateStateFromControl(target) {
   if (scope === "cohort") state.peopleCohorts[number(index)][field] = value;
   markModelCustom();
   renderResults();
-  renderDialogs();
   saveState();
   return true;
 }
@@ -652,6 +669,11 @@ controls.addEventListener("change", (event) => {
 controls.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
+  if (["collapse-editors", "expand-editors"].includes(button.dataset.action)) {
+    const open = button.dataset.action === "expand-editors";
+    controls.querySelectorAll("details.editor-row").forEach((details) => { details.open = open; });
+    return;
+  }
   const index = number(button.dataset.index);
   if (button.dataset.action === "add-stakeholder") state.stakeholders.push(blankStakeholder(uniqueId("holder")));
   if (button.dataset.action === "remove-stakeholder") state.stakeholders.splice(index, 1);
@@ -667,8 +689,26 @@ document.querySelector(".input-tabs").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-tab]");
   if (!button) return;
   activeInputTab = button.dataset.tab;
-  document.querySelectorAll(".input-tab").forEach((tab) => tab.classList.toggle("active", tab === button));
+  document.querySelectorAll(".input-tab").forEach((tab) => {
+    const active = tab === button;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
   renderControls();
+});
+
+document.querySelector(".input-tabs").addEventListener("keydown", (event) => {
+  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = [...document.querySelectorAll(".input-tab")];
+  const current = tabs.indexOf(event.target);
+  if (current < 0) return;
+  event.preventDefault();
+  const next = event.key === "Home" ? 0
+    : event.key === "End" ? tabs.length - 1
+      : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  tabs[next].focus();
+  tabs[next].click();
 });
 
 resultsContent.addEventListener("click", (event) => {
@@ -684,8 +724,8 @@ document.querySelector("#reset-button").addEventListener("click", () => {
   state = normalizeState(clonePreset(preset));
   renderAll();
 });
-document.querySelector("#methods-button").addEventListener("click", () => methodsDialog.showModal());
-document.querySelector("#sources-button").addEventListener("click", () => sourcesDialog.showModal());
+document.querySelector("#methods-button").addEventListener("click", () => { renderDialogs(); methodsDialog.showModal(); });
+document.querySelector("#sources-button").addEventListener("click", () => { renderDialogs(); sourcesDialog.showModal(); });
 
 document.querySelector("#export-button").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });

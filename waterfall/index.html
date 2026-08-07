@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0a0a0c">
     <link rel="icon" href="./assets/atas-mark-white.png" type="image/png">
     <title>M&amp;A Proceeds Simulator | Atas VC</title>
-    <link rel="stylesheet" href="./styles.css?v=13">
+    <link rel="stylesheet" href="./styles.css?v=14">
   </head>
   <body>
     <a class="skip-link" href="#results">skip to results</a>
@@ -41,20 +41,25 @@
       </header>
 
       <main class="workspace">
-        <aside class="control-panel" aria-label="Model inputs">
-          <nav class="input-tabs" aria-label="Input sections">
-            <button type="button" class="input-tab active" data-tab="deal">deal</button>
-            <button type="button" class="input-tab" data-tab="stakeholders">securities</button>
-            <button type="button" class="input-tab" data-tab="consideration">consideration</button>
-            <button type="button" class="input-tab" data-tab="people">people</button>
+        <aside id="inputs" class="control-panel" aria-label="Model inputs">
+          <nav class="input-tabs" aria-label="Input sections" role="tablist">
+            <button type="button" role="tab" aria-selected="true" aria-controls="controls" class="input-tab active" data-tab="deal">deal</button>
+            <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="controls" class="input-tab" data-tab="stakeholders">securities</button>
+            <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="controls" class="input-tab" data-tab="consideration">consideration</button>
+            <button type="button" role="tab" tabindex="-1" aria-selected="false" aria-controls="controls" class="input-tab" data-tab="people">people</button>
           </nav>
-          <div class="panel-scroll" id="controls"></div>
+          <div class="panel-scroll" id="controls" role="tabpanel" aria-label="Model input editor"></div>
         </aside>
 
         <section id="results" class="results" tabindex="-1" aria-label="Waterfall results">
           <div id="results-content" aria-live="polite"></div>
         </section>
       </main>
+
+      <nav class="mobile-jump-nav" aria-label="Mobile page sections">
+        <a href="#inputs">inputs</a>
+        <a href="#results">results</a>
+      </nav>
 
       <footer class="mobile-footer">Illustrative modeling only. Confirm mechanics against transaction documents.</footer>
     </div>
@@ -74,6 +79,6 @@
     </dialog>
 
     <div class="dot-cur" aria-hidden="true"></div>
-  <script type="module" src="./app.js?v=24"></script>
+  <script type="module" src="./app.js?v=25"></script>
   </body>
 </html>

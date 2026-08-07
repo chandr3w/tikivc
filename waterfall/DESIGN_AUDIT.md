@@ -99,3 +99,43 @@ The pari passu control was also narrowed after primary-source review. It now gov
 - Preference, participation, dividend, ratchet, option, eligibility, bridge-sign, and present-value fixtures all pass.
 - Every bundled preset conserves gross waterfall proceeds and reconciles closing plus deferred consideration to holder entitlement within one cent.
 - 1,500 randomized cap tables with up to 15 preferred classes conserve proceeds, remain invariant to consideration-row order and return stable, finite results.
+
+## Mobile design and performance audit — August 7, 2026
+
+### Audit health score
+
+| Dimension | Before | After | Key finding |
+|---|---:|---:|---|
+| Accessibility | 2/4 | 4/4 | Input tabs, shared check rows and range sliders were below the 44px touch standard. Long mobile helper copy also used the lowest-contrast 10px tier. All primary targets now meet 44px, and substantive mobile helper text uses the stronger Inter tier. |
+| Performance | 3/4 | 4/4 | A single pari-passu change calculated the active waterfall twice, calculated the comparison case, and rebuilt both closed dialogs. The active result is now memoized, dialogs render only when opened, and the comparison case is the only additional waterfall solve. |
+| Responsive behavior | 2/4 | 4/4 | The 620px input pane exceeded a 568px phone viewport, the header consumed 221px, and the populated Securities view exposed a 14,061px nested scroll path. The pane now uses dynamic viewport height, header actions fit one row, fixed input/results navigation preserves context, and collapse-all reduces the populated editor path by 87% while rows remain expanded by default. |
+| Theming and system coherence | 4/4 | 4/4 | The mobile controls retain the Atas app-mode tokens, official logo, self-hosted three-font system, mint focus states and low-radius surfaces. |
+| Design-pattern discipline | 4/4 | 4/4 | No slop warnings fired. The rendered container audit found a single square panel with rule-separated regions, no nested cards, no gradient text, no decorative side stripes and no rounded-card grid. |
+| **Total** | **15/20** | **20/20** | **Good → Excellent** |
+
+### Anti-pattern verdict
+
+The mobile simulator does not look AI-generated. The deterministic pass found zero warning-level slop tells and zero advisory cardification findings. Inter is the documented Atas body/UI face rather than a standalone brand treatment; Bricolage Grotesque supplies display contrast and JetBrains Mono is limited to fixed corner chrome. All three self-hosted fonts report loaded, and no visible text role uses an unintended family.
+
+### Resolved findings
+
+| Severity | Location | Impact | Resolution |
+|---|---|---|---|
+| P1 | `.control-panel`, `.panel-scroll`, `@media (max-width: 960px)` | A fixed 620px nested pane made the main editor taller than small phones and pushed results more than a screen away. | The pane now uses `min(72dvh, 620px)` and a persistent, safe-area-aware input/results jump bar. |
+| P1 | Airtable Securities editor | Thirteen expanded rows produced 14,061px of nested scrolling with no fast way to scan or reach a specific round. | Collapse-all and expand-all controls were added to every repeatable editor. All rows still open by default; collapsing the Airtable rows reduces the path to 1,897px. |
+| P1 | `.input-tab`, `.shared-checks .check-field`, `input[type="range"]` | 32–40px controls increased missed taps and failed the 44px mobile target standard. | All primary mobile controls and navigation links now measure at least 44×44px across the tested matrix. |
+| P2 | `.app-header`, `.header-tools` | Five actions occupied two rows and made the phone header 221px tall. | Actions use one five-column row at phone widths, reducing the header to 161px at 320–430px widths. |
+| P2 | `.modal`, `.modal-frame`, `.modal-content` | Dialog contents exceeded the dialog box by 42px at 390×844. | The dialog is a bounded two-row grid using dynamic viewport height; header and scrollable content now reconcile exactly at 320×568 and 390×844. |
+| P2 | `renderAll`, `updateStateFromControl`, `calculateModel` | Closed explainers were rebuilt and the same active waterfall was solved repeatedly during input changes. | Dialog rendering moved to open-time and the active model is cached by its economic inputs. |
+
+### Verification
+
+- Browser matrix: 320×568, 360×800, 390×844, 430×932 and 844×390.
+- Zero page-level horizontal overflow at every tested size.
+- Zero undersized primary targets after excluding the visually hidden checkbox input inside its 44px associated label.
+- Input/results anchors preserve 5px clearance below the fixed Atas logo at the smallest width.
+- Methods dialog fits 286×544 inside a 320×568 viewport; dialog and frame scroll heights reconcile exactly.
+- All editor rows remain expanded by default. Collapse/expand works across Securities, Consideration and People without mutating model economics.
+- No browser console warnings or errors.
+- Static payload remains dependency-free and under 500KB uncompressed including all three self-hosted fonts and the official logo.
+- Engine regression suite and JavaScript syntax checks pass.
