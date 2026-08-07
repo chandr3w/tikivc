@@ -193,7 +193,7 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .ownership-row strong { display: block; overflow: hidden; color: var(--ink-2); font-size: 11px; font-weight: 300; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .ownership-row span { display: block; margin-top: 2px; overflow: hidden; color: var(--ink-4); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .ownership-bar { height: 4px; overflow: hidden; background: var(--ink-5); }
-.ownership-bar span { height: 100%; margin: 0; background: var(--g); }
+.ownership-bar span { height: 100%; margin: 0; background: var(--g); transition: width .18s var(--ease); }
 .visual-grid > .viz-panel:last-child { grid-column: 1 / -1; }
 .viz-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .viz-heading h3, .table-heading h3 { margin: 2px 0 0; color: var(--ink); font: 400 16px/1.1 var(--disp); font-variation-settings: "opsz" 17; letter-spacing: -.01em; }
@@ -245,8 +245,8 @@ input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px 
 .compare-label { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; }
 .compare-label span { overflow: hidden; color: var(--ink-4); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .compare-label strong { flex: none; color: var(--ink-2); font-size: 10px; font-weight: 300; font-variant-numeric: tabular-nums; }
-.compare-track { height: 3px; overflow: hidden; margin-top: 3px; background: var(--ink-5); }
-.compare-track span { display: block; min-width: 1px; height: 100%; }
+.compare-track { height: 4px; overflow: hidden; margin-top: 3px; background: var(--ink-5); }
+.compare-track span { display: block; height: 100%; transition: width .18s var(--ease); }
 .compare-value.initial .compare-track span { background: var(--platinum); }
 .compare-value.exit .compare-track span { background: var(--g); }
 .mint { background: var(--g); }
@@ -306,10 +306,6 @@ html.has-dot input[type="range"]::-webkit-slider-runnable-track, html.has-dot in
 html.has-dot input[type="range"]::-moz-range-track, html.has-dot input[type="range"]::-moz-range-thumb { cursor: none !important; }
 html.has-dot dialog::backdrop, html.has-dot ::-webkit-scrollbar, html.has-dot ::-webkit-scrollbar-thumb { cursor: none !important; }
 body.hoverable .dot-cur { width: 20px; height: 20px; background: rgba(78,205,137,.28); }
-
-@media (max-width: 1320px) {
-  .header-tools .tool-button:nth-of-type(2), .header-tools .tool-button:nth-of-type(3) { display: none; }
-}
 
 @media (max-width: 1150px) {
   .visual-grid { grid-template-columns: 1fr; }

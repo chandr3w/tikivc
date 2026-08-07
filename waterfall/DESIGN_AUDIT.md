@@ -50,3 +50,22 @@ Independent score before changes: **18/20**
 | P2 | Stakeholder detail did not expose the class used for aggregation. | The table showed only security type and election. | Added an editable share-class field and a share-class column in the holder table. |
 
 Post-change score: **20/20**. The interface separates class economics from holder ownership, keeps the full calculation accessible to screen readers, and preserves the Atas app-mode hierarchy.
+
+## Functional and chart-linkage re-audit — August 6, 2026
+
+Overall score before fixes: **17/20**. Post-fix score: **20/20**.
+
+| Dimension | Before | After | Finding and resolution |
+|---|---:|---:|---|
+| Accessibility | 4/4 | 4/4 | Exact values remain visible in text and tables; chart bars are supplementary and hidden from the accessibility tree. |
+| Performance | 4/4 | 4/4 | The calculation remains dependency-free and updates in place. |
+| Responsive behavior | 4/4 | 4/4 | At 1280×720 the page has no horizontal overflow; result and input panes retain independent vertical scrolling. |
+| Theming and system coherence | 3/4 | 4/4 | Very small linear bars looked disconnected from eight-figure labels. Comparison bars now use a disclosed square-root scale and exact value bindings. |
+| Design-pattern discipline | 2/4 | 4/4 | Founder/common bars were based on share count while labeled as proceeds. They now use modeled entitlement, and every rendered bar carries the exact amount that determines its width. |
+
+### Verification
+
+- Automated engine coverage verifies all enterprise-to-equity bridge fields, preferences, seniority, participation, dividends, ratchets, option strikes, vesting, acceleration, recovery floors, tranche timing, discounting, eligibility, and payout conservation across every preset.
+- Browser testing exercised 22 end-to-end workflows covering presets, reset and persistence, both result views, every input section, row creation/removal, universal preference and optimal-conversion controls, model actions, dialogs, and chart updates.
+- A rendered-value audit checked all 38 Airtable bars: 20 investor bars, 16 employee bars, and 2 founder/common bars. Every width matched its bound amount.
+- A separate logic defect was corrected: an explicit 0% holder eligibility setting had been normalized to 100%.

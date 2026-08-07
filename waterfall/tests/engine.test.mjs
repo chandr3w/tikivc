@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { allocateConsideration, applySharedTerms, computeEquityBridge, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
-import { clonePreset } from "../presets.js";
+import { allocateConsideration, applySharedTerms, comparisonBarWidth, computeEquityBridge, computeExitModel, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "../waterfall-engine.js";
+import { PRESETS, clonePreset } from "../presets.js";
 
 const common = (id, shares) => ({ id, name: id, securityType: "common", shares, eligiblePercent: 100 });
 const preferred = (id, shares, invested, seniority, extra = {}) => ({
@@ -299,6 +299,145 @@ const preferred = (id, shares, invested, seniority, extra = {}) => ({
   assert.equal(allocated.results.a.closingCash, 30);
   assert.equal(allocated.results.b.closingCash, 50);
   assert.ok(Math.abs(allocated.results.a.expectedPresentValue - (30 + 20 * 0.9 / 1.1)) < 0.01);
+}
+
+{
+  assert.equal(comparisonBarWidth(0, 100), 0);
+  assert.ok(Math.abs(comparisonBarWidth(100, 100) - 100) < 1e-9);
+  assert.equal(comparisonBarWidth(1, 100), 10);
+  assert.ok(comparisonBarWidth(25, 100) > comparisonBarWidth(10, 100));
+}
+
+{
+  const result = computeWaterfall([
+    { ...common("excluded", 90), eligiblePercent: 0 },
+    common("included", 10),
+  ], 100);
+  assert.equal(result.payouts.excluded, 0);
+  assert.equal(result.payouts.included, 100);
+}
+
+{
+  const holder = { ...preferred("series-a", 20, 20, 1), useSharedTerms: true };
+  const zeroPreference = applySharedTerms([holder], {
+    liquidationPreference: true,
+    preferenceMultiple: 0,
+    optimalConversion: true,
+    escrowEligibleAll: true,
+    deferredEligibleAll: true,
+  });
+  assert.equal(zeroPreference[0].preferenceMultiple, 0);
+
+  const zeroCustomRatchet = applySharedTerms([holder], {
+    liquidationPreference: false,
+    antiDilution: true,
+    ratchetType: "custom",
+    conversionMultiplier: 0,
+    escrowEligibleAll: true,
+    deferredEligibleAll: true,
+  });
+  assert.equal(zeroCustomRatchet[0].conversionMultiplier, 0);
+}
+
+{
+  const signs = {
+    enterpriseValue: 1,
+    cash: 1,
+    debt: -1,
+    debtLike: -1,
+    workingCapital: 1,
+    transactionFees: -1,
+    bonuses: -1,
+    transferTaxes: -1,
+    otherAdjustment: 1,
+  };
+  for (const [field, sign] of Object.entries(signs)) {
+    const model = clonePreset("clean");
+    const baseline = computeExitModel(model).grossProceeds;
+    model.deal[field] += 1_000_000;
+    assert.equal(computeExitModel(model).grossProceeds - baseline, sign * 1_000_000, `${field} bridge dependency`);
+  }
+}
+
+{
+  const model = clonePreset("clean");
+  model.tranches = [{
+    id: "earnout",
+    label: "Earnout",
+    type: "earnout",
+    amount: 10_000_000,
+    treatment: "incremental",
+    eligibility: "all",
+    expectedPercent: 50,
+    years: 2,
+  }];
+  model.deal.discountRate = 10;
+  const result = computeExitModel(model);
+  assert.equal(result.incremental, 10_000_000);
+  assert.equal(result.grossProceeds, 110_000_000);
+  assert.ok(Math.abs(result.rows.reduce((sum, row) => sum + row.timing.expectedPresentValue, 0) - (100_000_000 + 10_000_000 * 0.5 / 1.1 ** 2)) < 0.05);
+
+  model.tranches[0].treatment = "included";
+  const included = computeExitModel(model);
+  assert.equal(included.incremental, 0);
+  assert.equal(included.grossProceeds, 100_000_000);
+  assert.ok(included.rows.reduce((sum, row) => sum + row.timing.expectedPresentValue, 0) < result.rows.reduce((sum, row) => sum + row.timing.expectedPresentValue, 0));
+}
+
+{
+  const base = {
+    equityType: "option",
+    grantShares: 100,
+    strike: 2,
+    eligiblePercent: 50,
+    accelerationPercent: 50,
+    exercisedPercent: 40,
+    recoveryFloorMultiple: 1,
+    transactionBonus: 50,
+    retentionBonus: 121,
+    retentionYears: 2,
+  };
+  const result = computePeopleCohortOutcome(base, 1, 10);
+  assert.equal(result.vestedShares, 50);
+  assert.equal(result.acceleratedShares, 25);
+  assert.equal(result.eligibleShares, 75);
+  assert.equal(result.exercisedShares, 30);
+  assert.equal(result.unexercisedShares, 45);
+  assert.equal(result.exerciseCost, 60);
+  assert.equal(result.equityProceeds, 30);
+  assert.equal(result.makeWhole, 30);
+  assert.ok(Math.abs(result.retentionPresentValue - 100) < 1e-9);
+  assert.ok(Math.abs(result.expectedValue - 210) < 1e-9);
+}
+
+{
+  const elective = Array.from({ length: 13 }, (_, index) => preferred(`p-${index}`, 1, 1, 1));
+  const result = computeWaterfall([common("common", 100), ...elective], 100);
+  assert.ok(result.warnings.some((warning) => warning.includes("up to 12 preferred classes")));
+}
+
+{
+  for (const presetName of Object.keys(PRESETS)) {
+    const model = clonePreset(presetName);
+    const result = computeExitModel(model);
+    const payoutTotal = Object.values(result.waterfall.payouts).reduce((sum, amount) => sum + amount, 0);
+    const closingTotal = result.rows.reduce((sum, row) => sum + row.timing.closingCash, 0);
+    const deferredTotal = result.rows.reduce((sum, row) => sum + row.deferred, 0);
+    assert.ok(Math.abs(payoutTotal + result.waterfall.unallocated - result.grossProceeds) < 0.05, `${presetName} waterfall conservation`);
+    assert.ok(Math.abs(closingTotal + deferredTotal - payoutTotal) < 0.05, `${presetName} consideration conservation`);
+    assert.ok(result.rows.every((row) => [row.timing.entitlement, row.timing.closingCash, row.timing.expectedPresentValue, row.deferred].every(Number.isFinite)), `${presetName} finite holder results`);
+    assert.ok(model.peopleCohorts.every((cohort) => Object.values(computePeopleCohortOutcome(cohort, result.waterfall.pricePerShare, model.deal.discountRate)).filter((value) => typeof value === "number").every(Number.isFinite)), `${presetName} finite people results`);
+  }
+}
+
+{
+  const allocated = allocateConsideration(
+    [common("holder", 1)],
+    { holder: 100 },
+    [{ id: "deferred", label: "Deferred", amount: 20, eligibility: "all", years: 0 }],
+    10,
+  );
+  assert.equal(allocated.results.holder.expectedPresentValue, 100);
 }
 
 console.log("engine tests passed");

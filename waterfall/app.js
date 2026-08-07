@@ -1,7 +1,7 @@
-import { allocateConsideration, applySharedTerms, computeEquityBridge, computePeopleCohortOutcome, computeWaterfall, ratchetMultiplier } from "./waterfall-engine.js?v=13";
-import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=13";
+import { applySharedTerms, comparisonBarWidth, computeEquityBridge, computeExitModel, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=15";
+import { PRESETS, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=15";
 
-const STORAGE_KEY = "tiki-exit-waterfall-v13";
+const STORAGE_KEY = "tiki-exit-waterfall-v15";
 const controls = document.querySelector("#controls");
 const resultsContent = document.querySelector("#results-content");
 const presetSelect = document.querySelector("#preset-select");
@@ -89,11 +89,32 @@ function normalizeState(model) {
     exercisedPercent: cohort.exercisedPercent ?? (cohort.alreadyExercised === true ? 100 : 0),
     recoveryFloorMultiple: number(cohort.recoveryFloorMultiple),
   }));
-  return { ...model, stakeholders, peopleCohorts, terms: { ...defaults, ...(model.terms || {}) } };
+  const tranches = (model.tranches || []).map((tranche) => {
+    const id = tranche.id || uniqueId("tranche");
+    return {
+      ...blankTranche(id),
+      ...tranche,
+      id,
+      expectedPercent: tranche.expectedPercent ?? 100,
+      years: number(tranche.years),
+    };
+  });
+  const savedPreset = model.meta?.preset;
+  const basePreset = model.meta?.basePreset in PRESETS
+    ? model.meta.basePreset
+    : (savedPreset in PRESETS ? savedPreset : "airtable");
+  return {
+    ...model,
+    meta: { ...(model.meta || {}), basePreset },
+    stakeholders,
+    tranches,
+    peopleCohorts,
+    terms: { ...defaults, ...(model.terms || {}) },
+  };
 }
 
 function renderAll() {
-  presetSelect.value = state.meta?.preset in PRESETS ? state.meta.preset : "airtable";
+  presetSelect.value = state.meta?.preset in PRESETS ? state.meta.preset : state.meta?.basePreset || "airtable";
   document.querySelectorAll(".input-tab").forEach((button) => button.classList.toggle("active", button.dataset.tab === activeInputTab));
   renderControls();
   renderResults();
@@ -235,8 +256,8 @@ function renderIndividualTerms(holder, index, preferenceSecurity) {
       ${indexedBooleanField(index, "deferredEligible", "Shares deferred consideration", holder.deferredEligible)}
     </div>
     ${preferenceSecurity ? `<div class="form-grid shared-term-values">
-      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "preferenceMultiple", "Preference multiple", holder.preferenceMultiple || 1, "number") : ""}
-      ${holder.preferenceEnabled && holder.participatingPreferred && holder.cappedParticipation ? indexedField(index, "stakeholder", "capMultiple", "Participation cap", holder.capMultiple || 3, "number") : ""}
+      ${holder.preferenceEnabled ? indexedField(index, "stakeholder", "preferenceMultiple", "Preference multiple", holder.preferenceMultiple ?? 1, "number") : ""}
+      ${holder.preferenceEnabled && holder.participatingPreferred && holder.cappedParticipation ? indexedField(index, "stakeholder", "capMultiple", "Participation cap", holder.capMultiple ?? 3, "number") : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends ? selectField(index, "stakeholder", "dividendType", "Dividend method", dividendType, [["fixed","Fixed accrued"],["simple","Simple annual"],["compound","Compound annual"]]) : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends && dividendType === "fixed" ? indexedField(index, "stakeholder", "accruedDividend", "Accrued dividend", holder.accruedDividend, "money") : ""}
       ${holder.preferenceEnabled && holder.cumulativeDividends && ["simple","compound"].includes(dividendType) ? indexedField(index, "stakeholder", "dividendRate", "Dividend rate", holder.dividendRate, "percent") : ""}
@@ -284,18 +305,7 @@ function renderPeopleEditor(cohort, index) {
 }
 
 function calculateModel() {
-  const bridge = computeEquityBridge(state.deal);
-  const incremental = incrementalConsideration();
-  const grossProceeds = bridge.equityValue + incremental;
-  const effectiveStakeholders = applySharedTerms(state.stakeholders, state.terms);
-  const waterfall = computeWaterfall(effectiveStakeholders, grossProceeds);
-  const consideration = allocateConsideration(effectiveStakeholders, waterfall.payouts, state.tranches, state.deal.discountRate);
-  const rows = effectiveStakeholders.map((holder, index) => {
-    const timing = consideration.results[holder.id] || { entitlement: 0, closingCash: 0, expectedPresentValue: 0, tranches: {} };
-    const deferred = Object.values(timing.tranches).reduce((sum, amount) => sum + amount, 0);
-    return { holder, index, timing, deferred };
-  }).sort((a, b) => optionalOrder(a.holder.displayOrder) - optionalOrder(b.holder.displayOrder) || b.timing.entitlement - a.timing.entitlement);
-  return { bridge, incremental, grossProceeds, waterfall, consideration, rows, effectiveStakeholders };
+  return computeExitModel(state);
 }
 
 function renderResults() {
@@ -367,15 +377,15 @@ function renderInvestorOutcomes(rows, waterfall, total) {
   const scaleMax = Math.max(1, ...investors.flatMap((item) => [item.investment, item.investorExit]));
   const rowsHtml = investors.map((item, index) => {
     const outcome = item.investment > 0 ? `${formatMultiple(item.investorExit / item.investment)} · ${formatPercent(item.fraction)} of round` : `${formatPercent(item.fraction)} of round`;
-    const initialWidth = Math.max(0, item.investment / scaleMax * 100);
-    const exitWidth = Math.max(0, item.investorExit / scaleMax * 100);
+    const initialWidth = comparisonBarWidth(item.investment, scaleMax);
+    const exitWidth = comparisonBarWidth(item.investorExit, scaleMax);
     return `<div class="class-compare-row">
       <div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(outcome)}</small></span></div>
-      <div class="compare-value initial"><div class="compare-label"><span>investor check</span><strong>${formatMoney(item.investment)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${initialWidth}%"></span></div></div>
-      <div class="compare-value exit"><div class="compare-label"><span>investor exit</span><strong>${formatMoney(item.investorExit)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${exitWidth}%"></span></div></div>
+      <div class="compare-value initial"><div class="compare-label"><span>investor check</span><strong>${formatMoney(item.investment)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.investment}" style="width:${initialWidth}%"></span></div></div>
+      <div class="compare-value exit"><div class="compare-label"><span>investor exit</span><strong>${formatMoney(item.investorExit)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.investorExit}" style="width:${exitWidth}%"></span></div></div>
     </div>`;
   }).join("");
-  return `<section class="viz-panel class-panel outcome-panel" aria-labelledby="investor-chart-title"><div class="viz-heading"><div><span class="section-label">share-class returns</span><h3 id="investor-chart-title">Investment vs proceeds by share class</h3></div><p>modeled investor share of each financing class</p></div><div class="class-comparison" role="img" aria-label="Side-by-side investment and exit value bars for ${investors.length} investor rounds">${rowsHtml || `<p class="empty-state">Add an investor round to calculate investor outcomes.</p>`}</div></section>${renderInvestorTable(investors, waterfall, total)}`;
+  return `<section class="viz-panel class-panel outcome-panel" aria-labelledby="investor-chart-title"><div class="viz-heading"><div><span class="section-label">share-class returns</span><h3 id="investor-chart-title">Investment vs proceeds by share class</h3></div><p>square-root scale keeps smaller classes legible · labels are exact</p></div><div class="class-comparison" role="img" aria-label="Side-by-side investment and exit value bars for ${investors.length} investor rounds">${rowsHtml || `<p class="empty-state">Add an investor round to calculate investor outcomes.</p>`}</div></section>${renderInvestorTable(investors, waterfall, total)}`;
 }
 
 function renderPeopleOutcomes(rows, pricePerShare) {
@@ -389,12 +399,12 @@ function renderPeopleOutcomes(rows, pricePerShare) {
     const multiple = item.exerciseCost > 0
       ? `${exerciseMix}${item.makeWhole > 0 ? ` · ${number(item.recoveryFloorMultiple).toFixed(1)}× floor` : ""}`
       : exerciseMix;
-    const initialWidth = item.initialInvestment / scaleMax * 100;
-    const exitWidth = item.expectedValue / scaleMax * 100;
+    const initialWidth = comparisonBarWidth(item.initialInvestment, scaleMax);
+    const exitWidth = comparisonBarWidth(item.expectedValue, scaleMax);
     const cohortLabel = String(item.label || seriesLabel(item.entryStage)).replace(/^Employee joining (?:at |in )/, "");
-    return `<div class="class-compare-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(cohortLabel)}</strong><small>${escapeHtml(multiple)}</small></span></div><div class="compare-value initial"><div class="compare-label"><span>exercise cost paid</span><strong>${formatMoney(item.initialInvestment)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${initialWidth}%"></span></div></div><div class="compare-value exit"><div class="compare-label"><span>modeled proceeds</span><strong>${formatMoney(item.expectedValue)}</strong></div><div class="compare-track" aria-hidden="true"><span style="width:${exitWidth}%"></span></div></div></div>`;
+    return `<div class="class-compare-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(cohortLabel)}</strong><small>${escapeHtml(multiple)}</small></span></div><div class="compare-value initial"><div class="compare-label"><span>exercise cost paid</span><strong>${formatMoney(item.initialInvestment)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.initialInvestment}" style="width:${initialWidth}%"></span></div></div><div class="compare-value exit"><div class="compare-label"><span>modeled proceeds</span><strong>${formatMoney(item.expectedValue)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.expectedValue}" style="width:${exitWidth}%"></span></div></div></div>`;
   }).join("");
-  return `${renderCommonOwnershipOutcomes(rows, pricePerShare)}<section class="viz-panel class-panel outcome-panel" aria-labelledby="people-chart-title"><div class="viz-heading"><div><span class="section-label">employee equity by entry stage</span><h3 id="people-chart-title">Cost basis vs holder proceeds</h3></div><p>${formatPrice(pricePerShare)} common value / share · normalized 100K grants</p></div><div class="class-comparison" role="img" aria-label="Employee entry-stage exit comparisons">${rowsHtml || `<p class="empty-state">Add an employee cohort to calculate outcomes.</p>`}</div></section>${renderPeopleTable(cohorts, pricePerShare)}`;
+  return `${renderCommonOwnershipOutcomes(rows, pricePerShare)}<section class="viz-panel class-panel outcome-panel" aria-labelledby="people-chart-title"><div class="viz-heading"><div><span class="section-label">employee equity by entry stage</span><h3 id="people-chart-title">Cost basis vs holder proceeds</h3></div><p>${formatPrice(pricePerShare)} common / share · square-root scale · exact labels</p></div><div class="class-comparison" role="img" aria-label="Employee entry-stage exit comparisons">${rowsHtml || `<p class="empty-state">Add an employee cohort to calculate outcomes.</p>`}</div></section>${renderPeopleTable(cohorts, pricePerShare)}`;
 }
 
 function renderCommonOwnershipOutcomes(rows, pricePerShare) {
@@ -409,8 +419,8 @@ function renderCommonOwnershipOutcomes(rows, pricePerShare) {
       names: members.map(({ holder }) => holder.name).join("; "),
     };
   }).filter((item) => item.shares > 0 || item.entitlement > 0);
-  const maxShares = Math.max(1, ...categories.map((item) => item.shares));
-  const rowsHtml = categories.map((item) => `<div class="ownership-row"><div><strong>${escapeHtml(item.category === "founder" ? "Founders" : "Employees & other common")}</strong><span>${escapeHtml(item.names)}</span></div><div class="ownership-bar"><span style="width:${Math.max(0, item.shares / maxShares * 100)}%"></span></div><div><strong>${formatMoney(item.entitlement)}</strong><span>${formatShares(item.shares)} · ${formatPrice(pricePerShare)} implied common</span></div></div>`).join("");
+  const maxEntitlement = Math.max(1, ...categories.map((item) => item.entitlement));
+  const rowsHtml = categories.map((item) => `<div class="ownership-row"><div><strong>${escapeHtml(item.category === "founder" ? "Founders" : "Employees & other common")}</strong><span>${escapeHtml(item.names)}</span></div><div class="ownership-bar" aria-hidden="true"><span data-amount="${item.entitlement}" style="width:${Math.max(0, item.entitlement / maxEntitlement * 100)}%"></span></div><div><strong>${formatMoney(item.entitlement)}</strong><span>${formatShares(item.shares)} · ${formatPrice(pricePerShare)} implied common</span></div></div>`).join("");
   return `<section class="ownership-panel" aria-labelledby="common-ownership-title"><div class="viz-heading"><div><span class="section-label">modeled common ownership</span><h3 id="common-ownership-title">Founder and employee/common proceeds</h3></div><p>aggregate founder ownership is estimated</p></div><div class="ownership-list">${rowsHtml}</div></section>`;
 }
 
@@ -554,7 +564,7 @@ function updateStateFromControl(target) {
     if (field === "roundSize") state.stakeholders[number(index)].invested = value;
   }
   if (scope === "cohort") state.peopleCohorts[number(index)][field] = value;
-  state.meta = { ...(state.meta || {}), preset: "custom", title: "Custom model", description: "Edited transaction model" };
+  markModelCustom();
   renderResults();
   renderDialogs();
   saveState();
@@ -589,7 +599,7 @@ controls.addEventListener("click", (event) => {
   if (button.dataset.action === "remove-tranche") state.tranches.splice(index, 1);
   if (button.dataset.action === "add-cohort") state.peopleCohorts.push(blankPeopleCohort(uniqueId("cohort")));
   if (button.dataset.action === "remove-cohort") state.peopleCohorts.splice(index, 1);
-  state.meta = { ...(state.meta || {}), preset: "custom", title: "Custom model", description: "Edited transaction model" };
+  markModelCustom();
   renderAll();
 });
 
@@ -609,7 +619,11 @@ resultsContent.addEventListener("click", (event) => {
 });
 
 presetSelect.addEventListener("change", () => { state = normalizeState(clonePreset(presetSelect.value)); renderAll(); });
-document.querySelector("#reset-button").addEventListener("click", () => { const preset = state.meta?.preset in PRESETS ? state.meta.preset : presetSelect.value; state = normalizeState(clonePreset(preset)); renderAll(); });
+document.querySelector("#reset-button").addEventListener("click", () => {
+  const preset = state.meta?.basePreset in PRESETS ? state.meta.basePreset : presetSelect.value;
+  state = normalizeState(clonePreset(preset));
+  renderAll();
+});
 document.querySelector("#methods-button").addEventListener("click", () => methodsDialog.showModal());
 document.querySelector("#sources-button").addEventListener("click", () => sourcesDialog.showModal());
 
@@ -640,7 +654,12 @@ importFile.addEventListener("change", async () => {
 });
 
 function countActiveTranches() { return state.tranches.filter((tranche) => number(tranche.amount) > 0).length; }
-function incrementalConsideration() { return state.tranches.reduce((sum, tranche) => sum + (tranche.treatment === "incremental" ? Math.max(0, number(tranche.amount)) : 0), 0); }
+function markModelCustom() {
+  const basePreset = state.meta?.basePreset in PRESETS
+    ? state.meta.basePreset
+    : (state.meta?.preset in PRESETS ? state.meta.preset : presetSelect.value);
+  state.meta = { ...(state.meta || {}), preset: "custom", basePreset, title: "Custom model", description: "Edited transaction model" };
+}
 function uniqueId(prefix) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
 function number(value) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 
@@ -686,7 +705,6 @@ function formatShares(value) {
 
 function formatPercent(value) { return `${(number(value) * 100).toFixed(2)}%`; }
 function formatMultiple(value) { return `${number(value).toFixed(2)}× gross`; }
-function optionalOrder(value) { return Number.isFinite(Number(value)) ? Number(value) : Number.MAX_SAFE_INTEGER; }
 function trimZeros(value, digits = 4) { return number(value).toFixed(digits).replace(/\.?0+$/, ""); }
 function labelForSecurity(value) { return { common:"Common stock", preferred:"Preferred stock", safe:"SAFE", note:"Convertible note", rsu:"RSU / restricted stock", option:"Option", warrant:"Warrant" }[value] || value; }
 function seriesLabel(value) { return Object.fromEntries(SERIES_OPTIONS)[value] || String(value || "Other"); }

@@ -48,6 +48,37 @@ export function computePeopleCohortOutcome(cohort, pricePerShare, discountRate =
   return { ...cohort, alreadyExercised, exercisedPercent, exercisedShares, unexercisedShares, vestedShares, acceleratedShares, eligibleShares, exerciseCost, initialInvestment, grossValue, exercisedGrossValue, unexercisedSpread, equityProceeds, recoveryFloorMultiple, makeWhole, transactionBonus, retentionBonus, retentionPresentValue, expectedValue };
 }
 
+export function computeExitModel(model) {
+  const deal = model?.deal || {};
+  const stakeholders = Array.isArray(model?.stakeholders) ? model.stakeholders : [];
+  const tranches = Array.isArray(model?.tranches) ? model.tranches : [];
+  const bridge = computeEquityBridge(deal);
+  const incremental = tranches.reduce((sum, tranche) => (
+    sum + (tranche.treatment === "incremental" ? Math.max(0, number(tranche.amount)) : 0)
+  ), 0);
+  const grossProceeds = bridge.equityValue + incremental;
+  const effectiveStakeholders = applySharedTerms(stakeholders, model?.terms);
+  const waterfall = computeWaterfall(effectiveStakeholders, grossProceeds);
+  const consideration = allocateConsideration(effectiveStakeholders, waterfall.payouts, tranches, deal.discountRate);
+  const rows = effectiveStakeholders.map((holder, index) => {
+    const timing = consideration.results[holder.id] || { entitlement: 0, closingCash: 0, expectedPresentValue: 0, tranches: {} };
+    const deferred = Object.values(timing.tranches).reduce((sum, amount) => sum + number(amount), 0);
+    return { holder, index, timing, deferred };
+  }).sort((a, b) => (
+    optionalOrder(a.holder.displayOrder, Number.MAX_SAFE_INTEGER) - optionalOrder(b.holder.displayOrder, Number.MAX_SAFE_INTEGER)
+    || b.timing.entitlement - a.timing.entitlement
+  ));
+  return { bridge, incremental, grossProceeds, waterfall, consideration, rows, effectiveStakeholders };
+}
+
+export function comparisonBarWidth(value, scaleMaximum, exponent = 0.5) {
+  const amount = Math.max(0, number(value));
+  const maximum = Math.max(0, number(scaleMaximum));
+  const power = clamp(number(exponent), 0.01, 1);
+  if (amount === 0 || maximum === 0) return 0;
+  return Math.min(100, Math.max(0, (amount / maximum) ** power * 100));
+}
+
 export function computeWaterfall(stakeholders, proceeds) {
   const normalized = stakeholders.map(normalizeStakeholder);
   const preferred = normalized.filter(isPreferenceSecurity);
@@ -130,7 +161,7 @@ export function applySharedTerms(stakeholders, terms = null) {
         : "none";
       return {
         ...holder,
-        preferenceMultiple: individualPreference ? Math.max(0, number(holder.preferenceMultiple || 1)) : 0,
+        preferenceMultiple: individualPreference ? Math.max(0, number(holder.preferenceMultiple ?? 1)) : 0,
         seniority: Math.max(1, Math.round(number(holder.seniority || 1))),
         participation: individualParticipation,
         capMultiple: individualParticipation === "capped" ? Math.max(0, number(holder.capMultiple || 0)) : 0,
@@ -146,7 +177,7 @@ export function applySharedTerms(stakeholders, terms = null) {
         downRoundPrice: individualRatchet !== "none" ? Math.max(0, number(holder.downRoundPrice)) : 0,
         preRoundShares: individualRatchet === "weighted-average" ? Math.max(0, number(holder.preRoundShares)) : 0,
         newMoney: individualRatchet === "weighted-average" ? Math.max(0, number(holder.newMoney)) : 0,
-        conversionMultiplier: individualRatchet === "custom" ? Math.max(0, number(holder.conversionMultiplier || 1)) : 1,
+        conversionMultiplier: individualRatchet === "custom" ? Math.max(0, number(holder.conversionMultiplier ?? 1)) : 1,
         secondaryPreferenceMultiple: 0,
         priorDistributions: 0,
         waiverPercent: 0,
@@ -162,7 +193,7 @@ export function applySharedTerms(stakeholders, terms = null) {
 
     return {
       ...shared,
-      preferenceMultiple: preferenceEnabled ? Math.max(0, number(terms.preferenceMultiple || 1)) : 0,
+      preferenceMultiple: preferenceEnabled ? Math.max(0, number(terms.preferenceMultiple ?? 1)) : 0,
       seniority: terms.pariPassu === true ? 1 : Math.max(1, Math.round(number(holder.seniority || sequentialTier.get(holder.id) || 1))),
       participation,
       capMultiple: participation === "capped" ? Math.max(0, number(terms.participationCap || 0)) : 0,
@@ -178,7 +209,7 @@ export function applySharedTerms(stakeholders, terms = null) {
       downRoundPrice: ratchetType !== "none" ? Math.max(0, number(terms.downRoundPrice)) : 0,
       preRoundShares: ratchetType === "weighted-average" ? Math.max(0, number(terms.preRoundShares)) : 0,
       newMoney: ratchetType === "weighted-average" ? Math.max(0, number(terms.newMoney)) : 0,
-      conversionMultiplier: ratchetType === "custom" ? Math.max(0, number(terms.conversionMultiplier || 1)) : 1,
+      conversionMultiplier: ratchetType === "custom" ? Math.max(0, number(terms.conversionMultiplier ?? 1)) : 1,
       secondaryPreferenceMultiple: 0,
       priorDistributions: 0,
       waiverPercent: 0,
@@ -343,7 +374,7 @@ export function allocateConsideration(stakeholders, entitlements, tranches, disc
     let expected = row.closingCash;
     tranches.forEach((tranche) => {
       const amount = row.tranches[tranche.id] || 0;
-      const probability = clamp(number(tranche.expectedPercent) / 100, 0, 1);
+      const probability = clamp(number(tranche.expectedPercent ?? 100) / 100, 0, 1);
       const years = Math.max(0, number(tranche.years));
       expected += amount * probability / ((1 + Math.max(0, number(discountRate)) / 100) ** years);
     });
@@ -371,7 +402,7 @@ function normalizeStakeholder(holder) {
     id: String(holder.id),
     securityType: holder.securityType || "common",
     shares: Math.max(0, number(holder.shares)),
-    eligiblePercent: clamp(number(holder.eligiblePercent || 100) / 100, 0, 1),
+    eligiblePercent: clamp(number(holder.eligiblePercent ?? 100) / 100, 0, 1),
     invested: Math.max(0, number(holder.invested)),
     preferenceMultiple: Math.max(0, number(holder.preferenceMultiple)),
     secondaryPreferenceMultiple: Math.max(0, number(holder.secondaryPreferenceMultiple)),
@@ -390,7 +421,7 @@ function normalizeStakeholder(holder) {
     strike: Math.max(0, number(holder.strike)),
     conversionPolicy: holder.conversionPolicy || "elective",
     ratchetType: holder.ratchetType || "none",
-    conversionMultiplier: Math.max(0, number(holder.conversionMultiplier || 1)),
+    conversionMultiplier: Math.max(0, number(holder.conversionMultiplier ?? 1)),
     originalPrice: Math.max(0, number(holder.originalPrice)),
     downRoundPrice: Math.max(0, number(holder.downRoundPrice)),
     preRoundShares: Math.max(0, number(holder.preRoundShares)),
@@ -404,7 +435,7 @@ export function ratchetMultiplier(holder) {
   const type = holder.ratchetType || "none";
   const originalPrice = Math.max(0, number(holder.originalPrice));
   const downRoundPrice = Math.max(0, number(holder.downRoundPrice));
-  if (type === "custom") return Math.max(0, number(holder.conversionMultiplier || 1));
+  if (type === "custom") return Math.max(0, number(holder.conversionMultiplier ?? 1));
   if (type === "none" || originalPrice <= 0 || downRoundPrice <= 0 || downRoundPrice >= originalPrice) return 1;
   if (type === "full-ratchet") return originalPrice / downRoundPrice;
   if (type === "weighted-average") {
