@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#0a0a0c">
     <link rel="icon" href="./assets/atas-mark-white.png" type="image/png">
     <title>M&amp;A Proceeds Simulator | Atas VC</title>
-    <link rel="stylesheet" href="./styles.css?v=14">
+    <link rel="stylesheet" href="./styles.css?v=15">
   </head>
   <body>
     <a class="skip-link" href="#results">skip to results</a>
@@ -52,7 +52,8 @@
         </aside>
 
         <section id="results" class="results" tabindex="-1" aria-label="Waterfall results">
-          <div id="results-content" aria-live="polite"></div>
+          <div id="results-status" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+          <div id="results-content"></div>
         </section>
       </main>
 
@@ -79,6 +80,6 @@
     </dialog>
 
     <div class="dot-cur" aria-hidden="true"></div>
-  <script type="module" src="./app.js?v=26"></script>
+  <script type="module" src="./app.js?v=27"></script>
   </body>
 </html>

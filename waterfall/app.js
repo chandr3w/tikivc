@@ -383,6 +383,34 @@ function calculateModel() {
   return calculationCacheValue;
 }
 
+function ensureResultsShell() {
+  if (resultsContent.querySelector(".result-layout")) return;
+  resultsContent.innerHTML = `
+    <header class="result-header" data-results-header></header>
+    <div class="alerts" data-results-alerts hidden></div>
+    <section class="metrics" aria-label="Transaction summary" data-results-metrics></section>
+    <div class="result-layout">
+      <nav class="result-tabs" role="tablist" aria-label="Exit outcome views">
+        <button id="result-tab-investors" type="button" role="tab" data-result-tab="investors" aria-controls="result-outcome-chart result-outcome-detail" class="result-tab">investors</button>
+        <button id="result-tab-people" type="button" role="tab" data-result-tab="people" aria-controls="result-outcome-chart result-outcome-detail" class="result-tab">founders &amp; employees</button>
+      </nav>
+      <div id="result-outcome-chart" class="result-tab-panel" role="tabpanel" data-result-panel></div>
+      <div class="visual-grid" data-results-bridge></div>
+      <div id="result-outcome-detail" class="result-tab-detail" role="region" data-result-panel></div>
+    </div>`;
+}
+
+function updateResultTabState() {
+  const activeTabId = `result-tab-${activeResultTab}`;
+  resultsContent.querySelectorAll(".result-tab").forEach((tab) => {
+    const active = tab.dataset.resultTab === activeResultTab;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  resultsContent.querySelectorAll("[data-result-panel]").forEach((panel) => panel.setAttribute("aria-labelledby", activeTabId));
+}
+
 function renderResults() {
   const model = calculateModel();
   const { bridge, incremental, grossProceeds, waterfall, consideration, rows } = model;
@@ -390,27 +418,25 @@ function renderResults() {
   const totalDeferred = rows.reduce((sum, row) => sum + row.deferred, 0);
   const totalExpected = rows.reduce((sum, row) => sum + row.timing.expectedPresentValue, 0);
   const warnings = buildWarnings(bridge, waterfall, consideration);
-  resultsContent.innerHTML = `
-    <header class="result-header"><div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div></header>
-    ${warnings.length ? `<div class="alerts">${warnings.map((warning) => `<div class="alert ${warning.tone || ""}">${escapeHtml(warning.text)}</div>`).join("")}</div>` : ""}
-    <section class="metrics" aria-label="Transaction summary">
-      ${metric("gross waterfall value", formatMoney(grossProceeds), true)}
-      ${metric("cash at close", formatMoney(totalClosing))}
-      ${metric("non-cash / deferred", formatMoney(totalDeferred))}
-      ${metric("expected present value", formatMoney(totalExpected))}
-      ${number(consideration.unallocated) > .01 ? metric("unallocated consideration", formatMoney(consideration.unallocated)) : ""}
-    </section>
-    <div class="visual-grid">
-      ${renderBridgeChart(bridge, incremental, grossProceeds)}
-    </div>
-    <nav class="result-tabs" role="tablist" aria-label="Exit outcome views">
-      <button type="button" role="tab" data-result-tab="investors" aria-selected="${activeResultTab === "investors"}" class="result-tab ${activeResultTab === "investors" ? "active" : ""}">investors</button>
-      <button type="button" role="tab" data-result-tab="people" aria-selected="${activeResultTab === "people"}" class="result-tab ${activeResultTab === "people" ? "active" : ""}">founders &amp; employees</button>
-    </nav>
-    <div class="result-tab-panel" role="tabpanel">
-      ${activeResultTab === "investors" ? renderInvestorOutcomes(rows, waterfall, grossProceeds) : renderPeopleOutcomes(rows, waterfall.pricePerShare)}
-    </div>
-  `;
+  const outcome = activeResultTab === "investors"
+    ? renderInvestorOutcomes(rows, waterfall, grossProceeds)
+    : renderPeopleOutcomes(rows, waterfall.pricePerShare);
+  ensureResultsShell();
+  resultsContent.querySelector("[data-results-header]").innerHTML = `<div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div>`;
+  const alerts = resultsContent.querySelector("[data-results-alerts]");
+  alerts.innerHTML = warnings.map((warning) => `<div class="alert ${warning.tone || ""}">${escapeHtml(warning.text)}</div>`).join("");
+  alerts.hidden = warnings.length === 0;
+  resultsContent.querySelector("[data-results-metrics]").innerHTML = `
+    ${metric("gross waterfall value", formatMoney(grossProceeds), true)}
+    ${metric("cash at close", formatMoney(totalClosing))}
+    ${metric("non-cash / deferred", formatMoney(totalDeferred))}
+    ${metric("expected present value", formatMoney(totalExpected))}
+    ${number(consideration.unallocated) > .01 ? metric("unallocated consideration", formatMoney(consideration.unallocated)) : ""}`;
+  resultsContent.querySelector("[data-results-bridge]").innerHTML = renderBridgeChart(bridge, incremental, grossProceeds);
+  resultsContent.querySelector("#result-outcome-chart").innerHTML = outcome.chartHtml;
+  resultsContent.querySelector("#result-outcome-detail").innerHTML = outcome.detailHtml;
+  updateResultTabState();
+  document.querySelector("#results-status").textContent = `${state.deal.name || "Transaction"}: ${formatMoney(grossProceeds)} gross waterfall value; ${formatMoney(totalExpected)} expected present value.`;
 }
 
 function renderBridgeChart(bridge, incremental, grossProceeds) {
@@ -448,13 +474,19 @@ function renderInvestorOutcomes(rows, waterfall, total) {
     const outcome = item.investment > 0 ? `${formatDpi(item.investorExit / item.investment)} · ${formatIrr(item.grossIrr)} IRR` : "No modeled investment";
     const initialWidth = comparisonBarWidth(item.investment, scaleMax);
     const exitWidth = comparisonBarWidth(item.investorExit, scaleMax);
-    return `<div class="class-compare-row">
+    return `<li class="class-compare-row">
       <div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(outcome)}</small></span></div>
       <div class="compare-value initial"><div class="compare-label"><span>investor check</span><strong>${formatMoney(item.investment)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.investment}" style="width:${initialWidth}%"></span></div></div>
       <div class="compare-value exit"><div class="compare-label"><span>investor exit</span><strong>${formatMoney(item.investorExit)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.investorExit}" style="width:${exitWidth}%"></span></div></div>
-    </div>`;
+    </li>`;
   }).join("");
-  return `<section class="viz-panel class-panel outcome-panel" aria-labelledby="investor-chart-title"><div class="viz-heading"><div><span class="section-label">share-class returns</span><h3 id="investor-chart-title">Investment vs proceeds by share class</h3></div><p>square-root scale keeps smaller classes legible · labels are exact</p></div><div class="class-comparison" role="img" aria-label="Side-by-side investment and exit value bars for ${investors.length} investor rounds">${rowsHtml || `<p class="empty-state">Add an investor round to calculate investor outcomes.</p>`}</div></section>${renderInvestorTable(investors, waterfall, total)}`;
+  const comparisonHtml = rowsHtml
+    ? `<ul class="class-comparison" aria-label="Investor outcomes by share class">${rowsHtml}</ul>`
+    : `<div class="class-comparison"><p class="empty-state">Add an investor round to calculate investor outcomes.</p></div>`;
+  return {
+    chartHtml: `<section class="viz-panel class-panel outcome-panel" aria-labelledby="investor-chart-title"><div class="viz-heading"><div><span class="section-label">share-class returns</span><h3 id="investor-chart-title">Investment vs proceeds by share class</h3></div><p>square-root scale keeps smaller classes legible · labels are exact</p></div>${comparisonHtml}</section>`,
+    detailHtml: renderInvestorTable(investors, waterfall, total),
+  };
 }
 
 function renderPeopleOutcomes(rows, pricePerShare) {
@@ -471,9 +503,15 @@ function renderPeopleOutcomes(rows, pricePerShare) {
     const initialWidth = comparisonBarWidth(item.initialInvestment, scaleMax);
     const exitWidth = comparisonBarWidth(item.expectedValue, scaleMax);
     const cohortLabel = String(item.label || seriesLabel(item.entryStage)).replace(/^Employee joining (?:at |in )/, "");
-    return `<div class="class-compare-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(cohortLabel)}</strong><small>${escapeHtml(multiple)}</small></span></div><div class="compare-value initial"><div class="compare-label"><span>exercise cost paid</span><strong>${formatMoney(item.initialInvestment)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.initialInvestment}" style="width:${initialWidth}%"></span></div></div><div class="compare-value exit"><div class="compare-label"><span>modeled proceeds</span><strong>${formatMoney(item.expectedValue)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.expectedValue}" style="width:${exitWidth}%"></span></div></div></div>`;
+    return `<li class="class-compare-row"><div class="class-identity"><span class="class-swatch ${colors[index % colors.length]}" aria-hidden="true"></span><span><strong>${escapeHtml(cohortLabel)}</strong><small>${escapeHtml(multiple)}</small></span></div><div class="compare-value initial"><div class="compare-label"><span>exercise cost paid</span><strong>${formatMoney(item.initialInvestment)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.initialInvestment}" style="width:${initialWidth}%"></span></div></div><div class="compare-value exit"><div class="compare-label"><span>modeled proceeds</span><strong>${formatMoney(item.expectedValue)}</strong></div><div class="compare-track" aria-hidden="true"><span data-amount="${item.expectedValue}" style="width:${exitWidth}%"></span></div></div></li>`;
   }).join("");
-  return `${renderCommonOwnershipOutcomes(rows, pricePerShare)}<section class="viz-panel class-panel outcome-panel" aria-labelledby="people-chart-title"><div class="viz-heading"><div><span class="section-label">employee equity by entry stage</span><h3 id="people-chart-title">Cost basis vs holder proceeds</h3></div><p>${formatPrice(pricePerShare)} common / share · square-root scale · exact labels</p></div><div class="class-comparison" role="img" aria-label="Employee entry-stage exit comparisons">${rowsHtml || `<p class="empty-state">Add an employee cohort to calculate outcomes.</p>`}</div></section>${renderPeopleTable(cohorts, pricePerShare)}`;
+  const comparisonHtml = rowsHtml
+    ? `<ul class="class-comparison" aria-label="Employee entry-stage exit comparisons">${rowsHtml}</ul>`
+    : `<div class="class-comparison"><p class="empty-state">Add an employee cohort to calculate outcomes.</p></div>`;
+  return {
+    chartHtml: `${renderCommonOwnershipOutcomes(rows, pricePerShare)}<section class="viz-panel class-panel outcome-panel" aria-labelledby="people-chart-title"><div class="viz-heading"><div><span class="section-label">employee equity by entry stage</span><h3 id="people-chart-title">Cost basis vs holder proceeds</h3></div><p>${formatPrice(pricePerShare)} common / share · square-root scale · exact labels</p></div>${comparisonHtml}</section>`,
+    detailHtml: renderPeopleTable(cohorts, pricePerShare),
+  };
 }
 
 function renderCommonOwnershipOutcomes(rows, pricePerShare) {
@@ -489,8 +527,8 @@ function renderCommonOwnershipOutcomes(rows, pricePerShare) {
     };
   }).filter((item) => item.shares > 0 || item.entitlement > 0);
   const maxEntitlement = Math.max(1, ...categories.map((item) => item.entitlement));
-  const rowsHtml = categories.map((item) => `<div class="ownership-row"><div><strong>${escapeHtml(item.category === "founder" ? "Founders" : "Employees & other common")}</strong><span>${escapeHtml(item.names)}</span></div><div class="ownership-bar" aria-hidden="true"><span data-amount="${item.entitlement}" style="width:${Math.max(0, item.entitlement / maxEntitlement * 100)}%"></span></div><div><strong>${formatMoney(item.entitlement)}</strong><span>${formatShares(item.shares)} · ${formatPrice(pricePerShare)} implied common</span></div></div>`).join("");
-  return `<section class="ownership-panel" aria-labelledby="common-ownership-title"><div class="viz-heading"><div><span class="section-label">modeled common ownership</span><h3 id="common-ownership-title">Founder and employee/common proceeds</h3></div><p>aggregate founder ownership is estimated</p></div><div class="ownership-list">${rowsHtml}</div></section>`;
+  const rowsHtml = categories.map((item) => `<li class="ownership-row"><div><strong>${escapeHtml(item.category === "founder" ? "Founders" : "Employees & other common")}</strong><span>${escapeHtml(item.names)}</span></div><div class="ownership-bar" aria-hidden="true"><span data-amount="${item.entitlement}" style="width:${Math.max(0, item.entitlement / maxEntitlement * 100)}%"></span></div><div><strong>${formatMoney(item.entitlement)}</strong><span>${formatShares(item.shares)} · ${formatPrice(pricePerShare)} implied common</span></div></li>`).join("");
+  return `<section class="ownership-panel" aria-labelledby="common-ownership-title"><div class="viz-heading"><div><span class="section-label">modeled common ownership</span><h3 id="common-ownership-title">Founder and employee/common proceeds</h3></div><p>aggregate founder ownership is estimated</p></div><ul class="ownership-list">${rowsHtml}</ul></section>`;
 }
 
 function renderInvestorTable(investors, waterfall, total) {
@@ -514,7 +552,7 @@ function renderInvestorTable(investors, waterfall, total) {
     time: flow.time + maximumHolding - item.holdingPeriodYears,
   })));
   const portfolioIrr = computeAnnualizedIrr(portfolioCashFlows);
-  return `<section class="payout-section" aria-labelledby="investor-table-title"><div class="table-heading"><div><span class="section-label">investor detail</span><h3 id="investor-table-title">Share-class waterfall</h3></div><p>DPI uses nominal proceeds; IRR uses editable investment-to-exit timing</p></div><div class="table-wrap"><table><thead><tr><th>share class</th><th>preference basis</th><th>round size</th><th>investor check</th><th>exit treatment</th><th>investor exit</th><th>gross DPI / IRR</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td>modeled investors</td><td></td><td></td><td>${formatMoney(investmentTotal)}</td><td></td><td>${formatMoney(exitTotal)}</td><td>${investmentTotal > 0 ? `<strong>${formatDpi(exitTotal / investmentTotal)}</strong><span class="subtext">${formatIrr(portfolioIrr)} gross IRR</span>` : "—"}</td></tr></tfoot></table></div></section>`;
+  return `<section class="payout-section" aria-labelledby="investor-table-title"><div class="table-heading"><div><span class="section-label">investor detail</span><h3 id="investor-table-title">Share-class waterfall</h3></div><p>DPI uses nominal proceeds; IRR uses editable investment-to-exit timing</p></div><span class="table-scroll-cue section-label">scroll horizontally for complete detail →</span><div class="table-wrap" tabindex="0" role="region" aria-label="Share-class waterfall table; scroll horizontally for complete detail"><table><thead><tr><th>share class</th><th>preference basis</th><th>round size</th><th>investor check</th><th>exit treatment</th><th>investor exit</th><th>gross DPI / IRR</th></tr></thead><tbody>${rowsHtml}</tbody><tfoot><tr><td>modeled investors</td><td></td><td></td><td>${formatMoney(investmentTotal)}</td><td></td><td>${formatMoney(exitTotal)}</td><td>${investmentTotal > 0 ? `<strong>${formatDpi(exitTotal / investmentTotal)}</strong><span class="subtext">${formatIrr(portfolioIrr)} gross IRR</span>` : "—"}</td></tr></tfoot></table></div></section>`;
 }
 
 function renderPeopleTable(cohorts, pricePerShare) {
@@ -527,7 +565,7 @@ function renderPeopleTable(cohorts, pricePerShare) {
     const positiveTreatment = item.makeWhole > 0 || inTheMoney || item.equityType === "common";
     return `<tr><td><strong>${escapeHtml(item.label)}</strong><span class="subtext">${escapeHtml(seriesLabel(item.entryStage))} · ${formatPercent(item.eligiblePercent / 100)} vested${item.acceleratedShares > 0 ? ` · ${formatShares(item.acceleratedShares)} accelerated` : ""}</span></td><td class="money">${formatShares(item.eligibleShares)}</td><td class="money">${formatPrice(item.strike)}</td><td class="money">${formatMoney(item.initialInvestment)}</td><td class="money">${formatMoney(item.equityProceeds)}</td><td class="money">${formatMoney(protection)}</td><td class="money">${formatMoney(item.expectedValue)}</td><td><strong class="${positiveTreatment ? "positive" : "negative"}">${escapeHtml(treatment)}</strong></td></tr>`;
   }).join("");
-  return `<section class="payout-section" aria-labelledby="people-table-title"><div class="table-heading"><div><span class="section-label">employee cohort detail</span><h3 id="people-table-title">Equity and modeled protection</h3></div><p>normalized 100K awards · taxes excluded</p></div><div class="table-wrap"><table><thead><tr><th>entry cohort</th><th>eligible shares</th><th>strike</th><th>exercise cost</th><th>equity proceeds</th><th>make-whole / bonus / retention</th><th>expected value</th><th>treatment</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></section>`;
+  return `<section class="payout-section" aria-labelledby="people-table-title"><div class="table-heading"><div><span class="section-label">employee cohort detail</span><h3 id="people-table-title">Equity and modeled protection</h3></div><p>normalized 100K awards · taxes excluded</p></div><span class="table-scroll-cue section-label">scroll horizontally for complete detail →</span><div class="table-wrap" tabindex="0" role="region" aria-label="Employee cohort table; scroll horizontally for complete detail"><table><thead><tr><th>entry cohort</th><th>eligible shares</th><th>strike</th><th>exercise cost</th><th>equity proceeds</th><th>make-whole / bonus / retention</th><th>expected value</th><th>treatment</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></section>`;
 }
 
 function renderDialogs() {
@@ -631,7 +669,28 @@ function metric(label, value, primary = false) {
   return `<div class="metric ${primary ? "primary" : ""}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
 }
 
-function updateStateFromControl(target) {
+let scheduledResultFrame = 0;
+let scheduledResultTimer = 0;
+
+function commitScheduledResults() {
+  if (scheduledResultFrame) cancelAnimationFrame(scheduledResultFrame);
+  if (scheduledResultTimer) clearTimeout(scheduledResultTimer);
+  scheduledResultFrame = 0;
+  scheduledResultTimer = 0;
+  renderResults();
+  saveState();
+}
+
+function scheduleResultsUpdate(debounce = false) {
+  if (scheduledResultFrame) cancelAnimationFrame(scheduledResultFrame);
+  if (scheduledResultTimer) clearTimeout(scheduledResultTimer);
+  scheduledResultFrame = 0;
+  scheduledResultTimer = 0;
+  if (debounce) scheduledResultTimer = setTimeout(commitScheduledResults, 120);
+  else scheduledResultFrame = requestAnimationFrame(commitScheduledResults);
+}
+
+function updateStateFromControl(target, renderImmediately = true) {
   const { scope, field, valueType, index } = target.dataset;
   if (!scope || !field) return false;
   let value = target.value;
@@ -647,8 +706,7 @@ function updateStateFromControl(target) {
   }
   if (scope === "cohort") state.peopleCohorts[number(index)][field] = value;
   markModelCustom();
-  renderResults();
-  saveState();
+  if (renderImmediately) commitScheduledResults();
   return true;
 }
 
@@ -662,12 +720,15 @@ controls.addEventListener("input", (event) => {
     event.target.style.setProperty("--range-progress", `${progress}%`);
     controls.querySelector(`[data-range-output="${event.target.dataset.rangeOutputId}"]`)?.replaceChildren(formatRangePercent(value));
   }
-  updateStateFromControl(event.target);
+  if (updateStateFromControl(event.target, false)) scheduleResultsUpdate(event.target.matches("input[type='text']"));
 });
 
 controls.addEventListener("change", (event) => {
-  if (!event.target.matches("select, input[type='checkbox']")) return;
-  if (updateStateFromControl(event.target)) renderControls();
+  if (event.target.matches("input[type='text']")) {
+    if (updateStateFromControl(event.target, false)) commitScheduledResults();
+    return;
+  }
+  if (event.target.matches("select, input[type='checkbox']") && updateStateFromControl(event.target)) renderControls();
 });
 
 controls.addEventListener("click", (event) => {
@@ -720,6 +781,19 @@ resultsContent.addEventListener("click", (event) => {
   if (!button) return;
   activeResultTab = button.dataset.resultTab;
   renderResults();
+  resultsContent.querySelector(`#result-tab-${activeResultTab}`)?.focus();
+});
+
+resultsContent.addEventListener("keydown", (event) => {
+  if (!event.target.matches("button[data-result-tab]") || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = [...resultsContent.querySelectorAll("button[data-result-tab]")];
+  const current = tabs.indexOf(event.target);
+  if (current < 0) return;
+  event.preventDefault();
+  const next = event.key === "Home" ? 0
+    : event.key === "End" ? tabs.length - 1
+      : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  tabs[next].click();
 });
 
 presetSelect.addEventListener("change", () => { state = normalizeState(clonePreset(presetSelect.value)); renderAll(); });
