@@ -10,6 +10,10 @@ const methodsDialog = document.querySelector("#methods-dialog");
 const sourcesDialog = document.querySelector("#sources-dialog");
 const methodsContent = document.querySelector("#methods-content");
 const sourcesContent = document.querySelector("#sources-content");
+const workspace = document.querySelector(".workspace");
+const inputsPanel = document.querySelector("#inputs");
+const resultsPanel = document.querySelector("#results");
+const mobileWorkspaceQuery = matchMedia("(max-width: 960px)");
 
 const GENERAL_SOURCES = [
   { label: "Wilson Sonsini: venture financing fundamentals", url: "https://www.wsgr.com/email/college-for-clients-series/2024/VC-Financing/PPT-2024-C4C-VC-Financing-Fundamentals.pdf", note: "Liquidation preference, participation, conversion and anti-dilution mechanics." },
@@ -840,6 +844,14 @@ function updateClock() {
 }
 updateClock();
 setInterval(updateClock, 1000);
+
+function syncWorkspaceOrder(event = mobileWorkspaceQuery) {
+  if (event.matches) workspace.insertBefore(resultsPanel, inputsPanel);
+  else workspace.insertBefore(inputsPanel, resultsPanel);
+}
+
+syncWorkspaceOrder();
+mobileWorkspaceQuery.addEventListener("change", syncWorkspaceOrder);
 
 if (matchMedia("(prefers-reduced-motion: no-preference)").matches && matchMedia("(pointer: fine)").matches) {
   document.documentElement.classList.add("has-dot");
