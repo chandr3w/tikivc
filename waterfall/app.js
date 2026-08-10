@@ -13,6 +13,8 @@ const sourcesContent = document.querySelector("#sources-content");
 const workspace = document.querySelector(".workspace");
 const inputsPanel = document.querySelector("#inputs");
 const resultsPanel = document.querySelector("#results");
+const resultsStatus = document.querySelector("#results-status");
+const clock = document.querySelector("#clock");
 const mobileWorkspaceQuery = matchMedia("(max-width: 960px)");
 
 const GENERAL_SOURCES = [
@@ -31,6 +33,8 @@ let activeInputTab = "deal";
 let activeResultTab = "investors";
 let calculationCacheKey = "";
 let calculationCacheValue = null;
+let resultsNodes = null;
+const renderedHtml = new WeakMap();
 
 const SERIES_OPTIONS = [
   ["common", "Common / founders"], ["formation", "Formation"], ["pre-seed", "Pre-seed"], ["seed", "Seed"],
@@ -69,6 +73,15 @@ function loadSavedState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+let stateSaveTimer = 0;
+function scheduleStateSave() {
+  if (stateSaveTimer) clearTimeout(stateSaveTimer);
+  stateSaveTimer = setTimeout(() => {
+    stateSaveTimer = 0;
+    saveState();
+  }, 300);
 }
 
 function normalizeState(model) {
@@ -384,20 +397,35 @@ function calculateModel() {
 }
 
 function ensureResultsShell() {
-  if (resultsContent.querySelector(".result-layout")) return;
-  resultsContent.innerHTML = `
-    <header class="result-header" data-results-header></header>
-    <div class="alerts" data-results-alerts hidden></div>
-    <section class="metrics" aria-label="Transaction summary" data-results-metrics></section>
-    <div class="result-layout">
-      <nav class="result-tabs" role="tablist" aria-label="Exit outcome views">
-        <button id="result-tab-investors" type="button" role="tab" data-result-tab="investors" aria-controls="result-outcome-chart result-outcome-detail" class="result-tab">investors</button>
-        <button id="result-tab-people" type="button" role="tab" data-result-tab="people" aria-controls="result-outcome-chart result-outcome-detail" class="result-tab">founders &amp; employees</button>
-      </nav>
-      <div id="result-outcome-chart" class="result-tab-panel" role="tabpanel" data-result-panel></div>
-      <div class="visual-grid" data-results-bridge></div>
-      <div id="result-outcome-detail" class="result-tab-detail" role="region" data-result-panel></div>
-    </div>`;
+  if (!resultsContent.querySelector(".result-layout")) {
+    resultsContent.innerHTML = `
+      <header class="result-header" data-results-header></header>
+      <div class="alerts" data-results-alerts hidden></div>
+      <section class="metrics" aria-label="Transaction summary" data-results-metrics></section>
+      <div class="result-layout">
+        <nav class="result-tabs" role="tablist" aria-label="Exit outcome views">
+          <button id="result-tab-investors" type="button" role="tab" data-result-tab="investors" aria-controls="result-outcome-chart result-outcome-detail" class="result-tab">investors</button>
+          <button id="result-tab-people" type="button" role="tab" data-result-tab="people" aria-controls="result-outcome-chart result-outcome-detail" class="result-tab">founders &amp; employees</button>
+        </nav>
+        <div id="result-outcome-chart" class="result-tab-panel" role="tabpanel" data-result-panel></div>
+        <div class="visual-grid" data-results-bridge></div>
+        <div id="result-outcome-detail" class="result-tab-detail" role="region" data-result-panel></div>
+      </div>`;
+  }
+  resultsNodes ||= {
+    header: resultsContent.querySelector("[data-results-header]"),
+    alerts: resultsContent.querySelector("[data-results-alerts]"),
+    metrics: resultsContent.querySelector("[data-results-metrics]"),
+    bridge: resultsContent.querySelector("[data-results-bridge]"),
+    chart: resultsContent.querySelector("#result-outcome-chart"),
+    detail: resultsContent.querySelector("#result-outcome-detail"),
+  };
+}
+
+function updateHtml(node, html) {
+  if (renderedHtml.get(node) === html) return;
+  node.innerHTML = html;
+  renderedHtml.set(node, html);
 }
 
 function updateResultTabState() {
@@ -422,21 +450,31 @@ function renderResults() {
     ? renderInvestorOutcomes(rows, waterfall, grossProceeds)
     : renderPeopleOutcomes(rows, waterfall.pricePerShare);
   ensureResultsShell();
-  resultsContent.querySelector("[data-results-header]").innerHTML = `<div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div>`;
-  const alerts = resultsContent.querySelector("[data-results-alerts]");
-  alerts.innerHTML = warnings.map((warning) => `<div class="alert ${warning.tone || ""}">${escapeHtml(warning.text)}</div>`).join("");
-  alerts.hidden = warnings.length === 0;
-  resultsContent.querySelector("[data-results-metrics]").innerHTML = `
+  updateHtml(resultsNodes.header, `<div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div>`);
+  updateHtml(resultsNodes.alerts, warnings.map((warning) => `<div class="alert ${warning.tone || ""}">${escapeHtml(warning.text)}</div>`).join(""));
+  resultsNodes.alerts.hidden = warnings.length === 0;
+  updateHtml(resultsNodes.metrics, `
     ${metric("gross waterfall value", formatMoney(grossProceeds), true)}
     ${metric("cash at close", formatMoney(totalClosing))}
     ${metric("non-cash / deferred", formatMoney(totalDeferred))}
     ${metric("expected present value", formatMoney(totalExpected))}
-    ${number(consideration.unallocated) > .01 ? metric("unallocated consideration", formatMoney(consideration.unallocated)) : ""}`;
-  resultsContent.querySelector("[data-results-bridge]").innerHTML = renderBridgeChart(bridge, incremental, grossProceeds);
-  resultsContent.querySelector("#result-outcome-chart").innerHTML = outcome.chartHtml;
-  resultsContent.querySelector("#result-outcome-detail").innerHTML = outcome.detailHtml;
+    ${number(consideration.unallocated) > .01 ? metric("unallocated consideration", formatMoney(consideration.unallocated)) : ""}`);
+  updateHtml(resultsNodes.bridge, renderBridgeChart(bridge, incremental, grossProceeds));
+  updateHtml(resultsNodes.chart, outcome.chartHtml);
+  updateHtml(resultsNodes.detail, outcome.detailHtml);
   updateResultTabState();
-  document.querySelector("#results-status").textContent = `${state.deal.name || "Transaction"}: ${formatMoney(grossProceeds)} gross waterfall value; ${formatMoney(totalExpected)} expected present value.`;
+  scheduleResultsAnnouncement(`${state.deal.name || "Transaction"}: ${formatMoney(grossProceeds)} gross waterfall value; ${formatMoney(totalExpected)} expected present value.`);
+}
+
+function renderActiveOutcome() {
+  const { rows, waterfall, grossProceeds } = calculateModel();
+  const outcome = activeResultTab === "investors"
+    ? renderInvestorOutcomes(rows, waterfall, grossProceeds)
+    : renderPeopleOutcomes(rows, waterfall.pricePerShare);
+  ensureResultsShell();
+  updateHtml(resultsNodes.chart, outcome.chartHtml);
+  updateHtml(resultsNodes.detail, outcome.detailHtml);
+  updateResultTabState();
 }
 
 function renderBridgeChart(bridge, incremental, grossProceeds) {
@@ -671,6 +709,16 @@ function metric(label, value, primary = false) {
 
 let scheduledResultFrame = 0;
 let scheduledResultTimer = 0;
+let resultsAnnouncementTimer = 0;
+let lastResultCommitTime = 0;
+
+function scheduleResultsAnnouncement(message) {
+  if (resultsAnnouncementTimer) clearTimeout(resultsAnnouncementTimer);
+  resultsAnnouncementTimer = setTimeout(() => {
+    resultsAnnouncementTimer = 0;
+    resultsStatus.textContent = message;
+  }, 350);
+}
 
 function commitScheduledResults() {
   if (scheduledResultFrame) cancelAnimationFrame(scheduledResultFrame);
@@ -678,7 +726,8 @@ function commitScheduledResults() {
   scheduledResultFrame = 0;
   scheduledResultTimer = 0;
   renderResults();
-  saveState();
+  lastResultCommitTime = performance.now();
+  scheduleStateSave();
 }
 
 function scheduleResultsUpdate(debounce = false) {
@@ -687,7 +736,15 @@ function scheduleResultsUpdate(debounce = false) {
   scheduledResultFrame = 0;
   scheduledResultTimer = 0;
   if (debounce) scheduledResultTimer = setTimeout(commitScheduledResults, 120);
-  else scheduledResultFrame = requestAnimationFrame(commitScheduledResults);
+  else {
+    const wait = Math.max(0, 34 - (performance.now() - lastResultCommitTime));
+    if (wait > 0) {
+      scheduledResultTimer = setTimeout(() => {
+        scheduledResultTimer = 0;
+        scheduledResultFrame = requestAnimationFrame(commitScheduledResults);
+      }, wait);
+    } else scheduledResultFrame = requestAnimationFrame(commitScheduledResults);
+  }
 }
 
 function updateStateFromControl(target, renderImmediately = true) {
@@ -780,7 +837,7 @@ resultsContent.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-result-tab]");
   if (!button) return;
   activeResultTab = button.dataset.resultTab;
-  renderResults();
+  renderActiveOutcome();
   resultsContent.querySelector(`#result-tab-${activeResultTab}`)?.focus();
 });
 
@@ -913,11 +970,11 @@ function slugify(value) { return String(value).toLowerCase().replace(/[^a-z0-9]+
 function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", "'":"&#39;", '"':"&quot;" }[character])); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, "&#96;"); }
 
-function updateClock() {
-  document.querySelector("#clock").textContent = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(new Date());
-}
+const clockFormatter = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+function updateClock() { clock.textContent = clockFormatter.format(new Date()); }
 updateClock();
 setInterval(updateClock, 1000);
+addEventListener("pagehide", saveState);
 
 function syncWorkspaceOrder(event = mobileWorkspaceQuery) {
   if (event.matches) workspace.insertBefore(resultsPanel, inputsPanel);
@@ -931,11 +988,30 @@ if (matchMedia("(prefers-reduced-motion: no-preference)").matches && matchMedia(
   document.documentElement.classList.add("has-dot");
   const dot = document.querySelector(".dot-cur");
   const hoverSelector = "a,button,summary,input,select,.field,.check-field,.metric,.bridge-node,.bridge-adjustment,.ownership-row,.class-compare-row,tbody tr";
+  let cursorFrame = 0;
+  let cursorX = 0;
+  let cursorY = 0;
+  let cursorHover = false;
+  let renderedCursorHover = false;
   addEventListener("pointermove", (event) => {
-    dot.style.transform = `translate3d(${event.clientX}px,${event.clientY}px,0)`;
-    document.body.classList.toggle("hoverable", Boolean(event.target.closest(hoverSelector)));
+    cursorX = event.clientX;
+    cursorY = event.clientY;
+    cursorHover = Boolean(event.target.closest(hoverSelector));
+    if (cursorFrame) return;
+    cursorFrame = requestAnimationFrame(() => {
+      cursorFrame = 0;
+      dot.style.transform = `translate3d(${cursorX}px,${cursorY}px,0)`;
+      if (cursorHover !== renderedCursorHover) {
+        renderedCursorHover = cursorHover;
+        document.body.classList.toggle("hoverable", cursorHover);
+      }
+    });
   });
-  addEventListener("pointerleave", () => document.body.classList.remove("hoverable"));
+  addEventListener("pointerleave", () => {
+    cursorHover = false;
+    renderedCursorHover = false;
+    document.body.classList.remove("hoverable");
+  });
 }
 
 renderAll();

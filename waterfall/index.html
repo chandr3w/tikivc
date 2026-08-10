@@ -6,13 +6,15 @@
     <meta name="description" content="Model enterprise-to-equity value and distribute M&A proceeds across security classes, preferences and consideration tranches.">
     <meta name="theme-color" content="#0a0a0c">
     <link rel="icon" href="./assets/atas-mark-white.png" type="image/png">
+    <link rel="preload" href="./assets/fonts/Inter.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="./assets/fonts/BricolageGrotesque.woff2" as="font" type="font/woff2" crossorigin>
     <title>M&amp;A Proceeds Simulator | Atas VC</title>
-    <link rel="stylesheet" href="./styles.css?v=15">
+    <link rel="stylesheet" href="./styles.css?v=16">
   </head>
   <body>
     <a class="skip-link" href="#results">skip to results</a>
 
-    <div class="corner tl"><a href="https://atas.vc" aria-label="Atas VC home"><img src="./assets/atas-logo-white.png" alt="Atas VC" class="corner-logo"></a></div>
+    <div class="corner tl"><a href="https://atas.vc" aria-label="Atas VC home"><img src="./assets/atas-logo-white.png" alt="Atas VC" class="corner-logo" width="61" height="15" decoding="async" fetchpriority="high"></a></div>
     <div class="corner bl">m&amp;a proceeds simulator</div>
     <div class="corner br"><span id="clock">00:00:00</span></div>
 
@@ -65,21 +67,21 @@
       <footer class="mobile-footer">Illustrative modeling only. Confirm mechanics against transaction documents.</footer>
     </div>
 
-    <dialog id="methods-dialog" class="modal">
+    <dialog id="methods-dialog" class="modal" aria-labelledby="methods-dialog-title">
       <form method="dialog" class="modal-frame">
-        <header><div><span class="modal-kicker">calculation notes</span><h2>Methods &amp; mechanics</h2></div><button class="modal-close" aria-label="Close methods">×</button></header>
+        <header><div><span class="modal-kicker">calculation notes</span><h2 id="methods-dialog-title">Methods &amp; mechanics</h2></div><button class="modal-close" aria-label="Close methods">×</button></header>
         <div id="methods-content" class="modal-content"></div>
       </form>
     </dialog>
 
-    <dialog id="sources-dialog" class="modal">
+    <dialog id="sources-dialog" class="modal" aria-labelledby="sources-dialog-title">
       <form method="dialog" class="modal-frame">
-        <header><div><span class="modal-kicker">research trail</span><h2>Sources &amp; assumptions</h2></div><button class="modal-close" aria-label="Close sources">×</button></header>
+        <header><div><span class="modal-kicker">research trail</span><h2 id="sources-dialog-title">Sources &amp; assumptions</h2></div><button class="modal-close" aria-label="Close sources">×</button></header>
         <div id="sources-content" class="modal-content"></div>
       </form>
     </dialog>
 
     <div class="dot-cur" aria-hidden="true"></div>
-  <script type="module" src="./app.js?v=27"></script>
+  <script type="module" src="./app.js?v=28"></script>
   </body>
 </html>

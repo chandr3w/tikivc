@@ -1,5 +1,33 @@
 # Design and UX audit
 
+## Independent performance and design audit — August 10, 2026
+
+Independent baseline score: **16/20 (Good)**. Post-fix score: **19/20 (Excellent)**.
+
+| Dimension | Before | After | Finding and resolution |
+|---|---:|---:|---|
+| Accessibility | 3/4 | 4/4 | The native dialogs were unnamed and the whole-model live summary could fire during every slider render. Both dialogs now use `aria-labelledby`, while result announcements have an independent 350ms pause. |
+| Performance | 3/4 | 3/4 | The Airtable solver measured 16.36ms p50 and 28.01ms p95 before DOM work. High-frequency updates are now capped near 30fps, storage writes are delayed independently, unchanged result regions retain their DOM, result-tab changes update only their outcome panels, the clock formatter is reused, and the pointer cursor is frame-coalesced. Fully granular value-level DOM patching remains a future optimization. |
+| Responsive behavior | 3/4 | 4/4 | At 320px, “expected present value” lost its meaning through ellipsis and the phone chart heading was cramped. Metric labels now wrap in a reserved two-line area and chart headings stack cleanly. |
+| Theming and system coherence | 4/4 | 4/4 | The existing Bricolage, Inter and JetBrains Mono roles remain unchanged. Important DPI, IRR and comparison labels now meet the 10px App-mode floor. |
+| Design-pattern discipline | 3/4 | 4/4 | The lone diffuse mint focus glow was removed. The custom cursor now animates a transform-only pseudo-element instead of width and height. |
+
+### Independent audit evidence
+
+- Engine benchmark after warmup: Airtable 16.36ms p50 / 28.01ms p95; Brex 1.39ms / 2.23ms; venture 0.77ms / 1.12ms; clean 0.05ms / 0.31ms.
+- Baseline render: 535 DOM nodes at 1366×768 and roughly 415 descendants in the results subtree.
+- No page-level overflow at 1366×768, 390×844, 320×568 or the 683×384 CSS-viewport equivalent of 200% zoom.
+- No mobile primary target below 44×44px. The wide waterfall table remains intentionally contained with a sticky first column and visible scroll cue.
+- No unexpected font family, cardification, nested-card sprawl, gradients, decorative glow after the fix, or browser warning/error.
+
+### Verification after changes
+
+- At 390×844 and 320×568, metric labels preserve their full text and the page has no horizontal overflow.
+- Result-tab activation preserves focus, selection state and `aria-labelledby` relationships while avoiding a full results refresh.
+- The Methods dialog is exposed as `dialog "Methods & mechanics"`; Sources uses the same naming pattern.
+- Slider value, styled progress and paired numeric output stay synchronized after keyboard adjustment.
+- Engine tests and JavaScript syntax checks pass.
+
 ## Baseline: SAFE dilution simulator
 
 Overall score: **5/20. Critical redesign needed.**
