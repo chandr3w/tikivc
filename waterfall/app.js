@@ -1,5 +1,5 @@
 import { applySharedTerms, comparisonBarWidth, computeAnnualizedIrr, computeEquityBridge, computeExitModel, computeInvestorAttribution, computePeopleCohortOutcome, ratchetMultiplier } from "./waterfall-engine.js?v=22";
-import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=22";
+import { PRESETS, applySecurityTypeDefaults, blankPeopleCohort, blankStakeholder, blankTranche, clonePreset } from "./presets.js?v=23";
 
 const STORAGE_KEY = "tiki-exit-waterfall-v22";
 const controls = document.querySelector("#controls");
@@ -139,9 +139,11 @@ function normalizeState(model) {
   const basePreset = model.meta?.basePreset in PRESETS
     ? model.meta.basePreset
     : (savedPreset in PRESETS ? savedPreset : "airtable");
+  const meta = { ...(model.meta || {}), basePreset };
+  if (basePreset === "airtable" && /Bending Spoons.*pari passu preference stack/.test(meta.description || "")) meta.description = "";
   return {
     ...model,
-    meta: { ...(model.meta || {}), basePreset },
+    meta,
     stakeholders,
     tranches,
     peopleCohorts,
@@ -453,7 +455,8 @@ function renderResults() {
     ? renderInvestorOutcomes(rows, waterfall, grossProceeds)
     : renderPeopleOutcomes(rows, waterfall.pricePerShare);
   ensureResultsShell();
-  updateHtml(resultsNodes.header, `<div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2><p>${escapeHtml(state.meta?.description || "Custom transaction model")}</p></div>`);
+  const resultDescription = String(state.meta?.description || "").trim();
+  updateHtml(resultsNodes.header, `<div><span class="kicker">transaction results</span><h2>${escapeHtml(state.deal.name || "Untitled transaction")}</h2>${resultDescription ? `<p>${escapeHtml(resultDescription)}</p>` : ""}</div>`);
   updateHtml(resultsNodes.alerts, warnings.map((warning) => `<div class="alert ${warning.tone || ""}">${escapeHtml(warning.text)}</div>`).join(""));
   resultsNodes.alerts.hidden = warnings.length === 0;
   updateHtml(resultsNodes.metrics, `

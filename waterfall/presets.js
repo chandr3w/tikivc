@@ -193,7 +193,7 @@ export const PRESETS = {
     meta: {
       preset: "airtable",
       title: "Airtable: announced acquisition",
-      description: "Evidence-based best estimate of Bending Spoons' announced all-cash acquisition, using filing-derived class counts, original issue prices and the documented 1× pari passu preference stack.",
+      description: "",
       asOf: "Announced August 4, 2026 and not yet closed. Reported: $1.285B purchase price and $2.25B implied equity value including cash. The default bridge therefore uses $965M of cash and no undisclosed fees, escrows or contingent consideration. Filing-derived shares and original issue prices are modeled separately for Seed through Series F; 1× non-participating preferences rank pari passu and every class elects its financially optimal treatment. Public information discloses 21,981,692 aggregate common shares but not the founder split, so 12M founder shares and 9,981,692 employee/other common shares remain an editable midpoint estimate. The additional 667,395 Series FF shares are founders preferred issued at formation; because no separate exit preference is disclosed, the model treats them as common-like founder equity. Employee rows are normalized 100K-award scenarios, not headcount populations. Exercise rates decline by entry stage; the 2023+ row assumes 25% of vested options were exercised. A 1× cost-recovery make-whole on exercised shares is a modeled transaction-protection assumption, not a disclosed Airtable term.",
       sources: [
         {
