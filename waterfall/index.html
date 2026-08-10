@@ -9,7 +9,7 @@
     <link rel="preload" href="./assets/fonts/Inter.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="./assets/fonts/BricolageGrotesque.woff2" as="font" type="font/woff2" crossorigin>
     <title>M&amp;A Proceeds Simulator | Atas VC</title>
-    <link rel="stylesheet" href="./styles.css?v=16">
+    <link rel="stylesheet" href="./styles.css?v=17">
   </head>
   <body>
     <a class="skip-link" href="#results">skip to results</a>
@@ -36,6 +36,7 @@
           <button class="tool-button" id="reset-button" type="button">reset</button>
           <button class="tool-button" id="export-button" type="button">export</button>
           <button class="tool-button" id="import-button" type="button">import</button>
+          <button class="tool-button" id="linkedin-button" type="button" aria-label="Download LinkedIn image">linkedin</button>
           <button class="tool-button" id="methods-button" type="button">methods</button>
           <button class="tool-button" id="sources-button" type="button">sources</button>
           <input id="import-file" type="file" accept="application/json" hidden>
@@ -81,7 +82,17 @@
       </form>
     </dialog>
 
+    <dialog id="linkedin-dialog" class="modal linkedin-modal" aria-labelledby="linkedin-dialog-title">
+      <form method="dialog" class="modal-frame">
+        <header><div><span class="modal-kicker">1080 × 1350 PNG</span><h2 id="linkedin-dialog-title">LinkedIn image preview</h2></div><button class="modal-close" aria-label="Close LinkedIn preview">×</button></header>
+        <div class="linkedin-preview-frame">
+          <div id="linkedin-preview" class="linkedin-preview"></div>
+          <div class="linkedin-actions"><p>The active outcome tab determines which graph is shown.</p><a class="button" id="linkedin-download-button" href="#" download>download PNG</a></div>
+        </div>
+      </form>
+    </dialog>
+
     <div class="dot-cur" aria-hidden="true"></div>
-  <script type="module" src="./app.js?v=28"></script>
+  <script type="module" src="./app.js?v=29"></script>
   </body>
 </html>

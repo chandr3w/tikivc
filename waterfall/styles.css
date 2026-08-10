@@ -306,6 +306,13 @@ tfoot td { color: var(--ink); border-top: 1px solid var(--border-strong); border
 .explainer p { margin: 0; color: var(--ink-3); font-size: 13px; line-height: 1.65; }
 .explainer a { color: var(--g); text-decoration: underline; text-underline-offset: 3px; }
 .disclaimer { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--ink-4); font-size: 11px; line-height: 1.6; }
+.linkedin-modal { width: min(760px, calc(100vw - 28px)); }
+.linkedin-preview-frame { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; overflow: hidden; }
+.linkedin-preview { min-height: 0; overflow: auto; padding: 14px; background: #050506; }
+.linkedin-preview img { width: min(100%, 540px); height: auto; display: block; margin: 0 auto; border: 1px solid var(--border); }
+.linkedin-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--panel-el); }
+.linkedin-actions p { margin: 0; color: var(--ink-3); font-size: 11px; }
+.linkedin-actions .button { flex: none; min-width: 140px; display: grid; place-items: center; }
 .mobile-footer { display: none; }
 .mobile-jump-nav { display: none; }
 
@@ -354,6 +361,7 @@ body.hoverable .dot-cur::after { background: rgba(78,205,137,.28); transform: sc
   .mobile-footer { display: block; padding: 12px 2px 20px; color: var(--ink-3); font-size: 10px; }
   .modal { max-height: calc(100dvh - 24px); }
   .modal-content { max-height: none; }
+  .linkedin-actions { align-items: stretch; flex-direction: column; gap: 8px; }
 }
 
 @media (max-width: 620px) {
@@ -361,7 +369,7 @@ body.hoverable .dot-cur::after { background: rgba(78,205,137,.28); transform: sc
   .app-shell { padding-inline: 16px; }
   .app-header { gap: 12px; padding: 12px 0; }
   h1 { font-size: 17px; }
-  .header-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .header-tools { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
   .preset-control { width: auto; grid-column: 1 / -1; }
   .tool-button { min-width: 0; padding-inline: 4px; }
   .form-grid { grid-template-columns: 1fr; }

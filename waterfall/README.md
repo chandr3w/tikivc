@@ -34,7 +34,7 @@ npm test
 npm run serve
 ```
 
-Open `http://127.0.0.1:8770`. The app has no runtime dependencies, sends no model data to a server, and stores the working model in browser local storage. Models can be downloaded and re-imported as JSON.
+Open `http://127.0.0.1:8770`. The app has no runtime dependencies, sends no model data to a server, and stores the working model in browser local storage. Models can be downloaded and re-imported as JSON. The `linkedin` action builds a local 1080×1350 PNG preview from the active outcome tab. Its headline names the modeled company; the investor image uses selected primary financing rounds for feed readability, while the underlying simulator retains every class.
 
 ## Airtable preset
 

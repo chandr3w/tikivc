@@ -8,8 +8,11 @@ const presetSelect = document.querySelector("#preset-select");
 const importFile = document.querySelector("#import-file");
 const methodsDialog = document.querySelector("#methods-dialog");
 const sourcesDialog = document.querySelector("#sources-dialog");
+const linkedinDialog = document.querySelector("#linkedin-dialog");
 const methodsContent = document.querySelector("#methods-content");
 const sourcesContent = document.querySelector("#sources-content");
+const linkedinPreview = document.querySelector("#linkedin-preview");
+const linkedinDownloadButton = document.querySelector("#linkedin-download-button");
 const workspace = document.querySelector(".workspace");
 const inputsPanel = document.querySelector("#inputs");
 const resultsPanel = document.querySelector("#results");
@@ -477,6 +480,307 @@ function renderActiveOutcome() {
   updateResultTabState();
 }
 
+function linkedInSnapshotData(model) {
+  if (activeResultTab === "investors") {
+    const investors = model.rows.filter(({ holder }) => ["preferred", "safe", "note"].includes(holder.securityType) || number(holder.investorInvestment) > 0).map((row) => {
+      const attribution = computeInvestorAttribution(row.holder, row.timing, row.deferred, state.tranches);
+      return {
+        label: row.holder.className || seriesLabel(row.holder.series),
+        meta: attribution.investment > 0 ? `${formatDpi(attribution.investorExit / attribution.investment)} · ${formatIrr(attribution.grossIrr)} IRR` : "No modeled investment",
+        initial: attribution.investment,
+        exit: attribution.investorExit,
+      };
+    });
+    const primaryRounds = investors.filter((row) => !/series\s+[a-z]-\d+/i.test(row.label));
+    const selectedRounds = (primaryRounds.length >= 3 ? primaryRounds : investors).slice(0, 8);
+    return [{ label: "selected primary financing rounds", initialLabel: "investor check", exitLabel: "investor exit", rows: selectedRounds }];
+  }
+
+  const commonRows = model.rows.filter(({ holder }) => ["founder", "employee"].includes(holder.category));
+  const ownershipRows = ["founder", "employee"].map((category) => {
+    const members = commonRows.filter(({ holder }) => holder.category === category);
+    const shares = members.reduce((sum, { holder }) => sum + number(holder.shares), 0);
+    const exit = members.reduce((sum, { timing }) => sum + number(timing.entitlement), 0);
+    return {
+      label: category === "founder" ? "Founders" : "Employees & other common",
+      meta: `${formatShares(shares)} · ${formatPrice(model.waterfall.pricePerShare)} implied common`,
+      initial: null,
+      exit,
+    };
+  }).filter((row) => row.exit > 0);
+
+  const cohortRows = state.peopleCohorts.map((cohort) => {
+    const item = computePeopleCohortOutcome(cohort, model.waterfall.pricePerShare, state.deal.discountRate);
+    return {
+      label: String(item.label || seriesLabel(item.entryStage)).replace(/^Employee joining (?:at |in )/, ""),
+      meta: item.exerciseCost > 0 ? `${formatPrice(item.strike)} strike · ${formatShares(item.eligibleShares)}` : `${formatShares(item.eligibleShares)} common`,
+      initial: item.initialInvestment,
+      exit: item.expectedValue,
+    };
+  });
+
+  return [
+    { label: "modeled common ownership", initialLabel: "", exitLabel: "holder proceeds", rows: ownershipRows },
+    { label: "employee equity by entry stage", initialLabel: "exercise cost paid", exitLabel: "modeled proceeds", rows: cohortRows },
+  ].filter((group) => group.rows.length);
+}
+
+function drawTrackedText(context, text, x, y, spacing = 2) {
+  let cursor = x;
+  for (const character of String(text)) {
+    context.fillText(character, cursor, y);
+    cursor += context.measureText(character).width + spacing;
+  }
+}
+
+function fitCanvasText(context, text, maxWidth) {
+  const value = String(text);
+  if (context.measureText(value).width <= maxWidth) return value;
+  let shortened = value;
+  while (shortened.length > 1 && context.measureText(`${shortened}…`).width > maxWidth) shortened = shortened.slice(0, -1);
+  return `${shortened}…`;
+}
+
+function wrapCanvasText(context, text, maxWidth) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (context.measureText(candidate).width <= maxWidth || !line) line = candidate;
+    else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function loadSnapshotImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Could not load ${source}`));
+    image.src = source;
+  });
+}
+
+async function buildLinkedInCanvas() {
+  await document.fonts.ready;
+  await Promise.all([
+    document.fonts.load('500 52px "Bricolage Grotesque"'),
+    document.fonts.load('300 22px "Inter"'),
+  ]);
+
+  const model = calculateModel();
+  const groups = linkedInSnapshotData(model);
+  const canvas = document.createElement("canvas");
+  canvas.setAttribute("role", "img");
+  canvas.setAttribute("aria-label", `${state.deal.name || "Transaction"}: ${activeResultTab === "investors" ? "selected primary investor rounds" : "complete founder and employee outcomes"} prepared for LinkedIn.`);
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const context = canvas.getContext("2d");
+  const margin = 72;
+  const right = canvas.width - margin;
+  const contentWidth = right - margin;
+  const fullTransactionName = state.deal.name || "Untitled transaction";
+  const companyName = fullTransactionName.split(/\s+\/\s+|\s+[–—]\s+|\s+\(/)[0].trim() || "Transaction";
+  const transactionDetail = fullTransactionName.includes("/") ? fullTransactionName.split("/").slice(1).join("/").trim() : "";
+  const white = "rgba(255,255,255,.95)";
+  const mid = "rgba(255,255,255,.62)";
+  const dim = "rgba(255,255,255,.44)";
+  const rule = "rgba(255,255,255,.12)";
+  const track = "rgba(255,255,255,.10)";
+  const mint = "#4ecd89";
+  const platinum = "#d5d9e2";
+
+  context.fillStyle = "#0a0a0c";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  const logo = await loadSnapshotImage("./assets/atas-logo-white.png");
+  const logoHeight = 26;
+  const logoWidth = logoHeight * (logo.naturalWidth / logo.naturalHeight);
+  context.drawImage(logo, margin, 52, logoWidth, logoHeight);
+
+  context.fillStyle = dim;
+  context.font = '400 16px "Inter"';
+  drawTrackedText(context, `M&A PROCEEDS SIMULATOR · ${activeResultTab === "investors" ? "INVESTORS" : "FOUNDERS & EMPLOYEES"}`, margin, 128, 2.4);
+
+  let titleSize = 54;
+  let titleLines = [];
+  do {
+    context.font = `500 ${titleSize}px "Bricolage Grotesque"`;
+    titleLines = wrapCanvasText(context, `${companyName} exit waterfall`, contentWidth);
+    if (titleLines.length <= 2) break;
+    titleSize -= 2;
+  } while (titleSize > 38);
+  context.fillStyle = white;
+  titleLines.forEach((line, index) => context.fillText(line, margin, 194 + index * (titleSize + 4)));
+
+  const titleBottom = 194 + (titleLines.length - 1) * (titleSize + 4);
+  context.fillStyle = mid;
+  context.font = '300 19px "Inter"';
+  const outcomeDescription = activeResultTab === "investors" ? "modeled proceeds across selected primary rounds" : "modeled common ownership and employee equity outcomes";
+  context.fillText(transactionDetail ? `${transactionDetail} · ${outcomeDescription}` : outcomeDescription, margin, titleBottom + 42);
+
+  const totalClosing = model.rows.reduce((sum, row) => sum + row.timing.closingCash, 0);
+  const totalDeferred = model.rows.reduce((sum, row) => sum + row.deferred, 0);
+  const totalExpected = model.rows.reduce((sum, row) => sum + row.timing.expectedPresentValue, 0);
+  const metrics = [
+    ["gross waterfall value", formatMoney(model.grossProceeds)],
+    ["cash at close", formatMoney(totalClosing)],
+    ["non-cash / deferred", formatMoney(totalDeferred)],
+    ["expected present value", formatMoney(totalExpected)],
+  ];
+  const metricsTop = Math.max(310, titleBottom + 78);
+  const metricWidth = contentWidth / metrics.length;
+  context.strokeStyle = rule;
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(margin, metricsTop);
+  context.lineTo(right, metricsTop);
+  context.moveTo(margin, metricsTop + 112);
+  context.lineTo(right, metricsTop + 112);
+  context.stroke();
+  metrics.forEach(([label, value], index) => {
+    const x = margin + index * metricWidth;
+    if (index) {
+      context.beginPath();
+      context.moveTo(x, metricsTop + 18);
+      context.lineTo(x, metricsTop + 94);
+      context.stroke();
+    }
+    context.fillStyle = dim;
+    context.font = '400 14px "Inter"';
+    context.fillText(label, x + (index ? 18 : 0), metricsTop + 34);
+    context.fillStyle = index === 0 ? mint : white;
+    context.font = '500 34px "Bricolage Grotesque"';
+    context.fillText(value, x + (index ? 18 : 0), metricsTop + 78);
+  });
+
+  const chartTop = metricsTop + 160;
+  context.fillStyle = dim;
+  context.font = '400 15px "Inter"';
+  drawTrackedText(context, "OUTCOME GRAPH", margin, chartTop, 2.1);
+  context.fillStyle = white;
+  context.font = '500 31px "Bricolage Grotesque"';
+  context.fillText(activeResultTab === "investors" ? "Selected investor checks vs proceeds" : "Founder and employee outcomes", margin, chartTop + 43);
+  context.fillStyle = dim;
+  context.font = '300 16px "Inter"';
+  context.fillText("square-root scale · exact labels", right - context.measureText("square-root scale · exact labels").width, chartTop + 42);
+
+  const rowCount = groups.reduce((sum, group) => sum + group.rows.length, 0);
+  const groupHeaderHeight = 29;
+  const chartBottom = 1240;
+  const rowsTop = chartTop + 78;
+  const rowHeight = Math.min(64, Math.max(36, (chartBottom - rowsTop - groups.length * groupHeaderHeight) / Math.max(1, rowCount)));
+  const labelWidth = 286;
+  const barX = margin + labelWidth + 18;
+  const barWidth = right - barX;
+  let y = rowsTop;
+
+  groups.forEach((group) => {
+    context.fillStyle = dim;
+    context.font = '400 13px "Inter"';
+    drawTrackedText(context, group.label.toUpperCase(), margin, y + 16, 1.7);
+    y += groupHeaderHeight;
+    const scaleMax = Math.max(1, ...group.rows.flatMap((row) => [number(row.initial), number(row.exit)]));
+    group.rows.forEach((row) => {
+      const compact = rowHeight < 50;
+      const labelSize = compact ? 17 : 20;
+      const metaSize = compact ? 12 : 14;
+      const amountSize = compact ? 13 : 15;
+      context.strokeStyle = rule;
+      context.beginPath();
+      context.moveTo(margin, y + rowHeight);
+      context.lineTo(right, y + rowHeight);
+      context.stroke();
+
+      context.fillStyle = white;
+      context.font = `400 ${labelSize}px "Inter"`;
+      context.fillText(fitCanvasText(context, row.label, labelWidth - 12), margin, y + (compact ? 17 : 22));
+      context.fillStyle = dim;
+      context.font = `300 ${metaSize}px "Inter"`;
+      context.fillText(fitCanvasText(context, row.meta, labelWidth - 12), margin, y + (compact ? 34 : 44));
+
+      const barHeight = compact ? 5 : 6;
+      const firstY = y + (compact ? 13 : 16);
+      const secondY = y + (compact ? 32 : 40);
+      const drawBar = (label, value, barY, color) => {
+        context.fillStyle = dim;
+        context.font = `300 ${amountSize}px "Inter"`;
+        context.fillText(label, barX, barY);
+        context.fillStyle = white;
+        context.font = `400 ${amountSize}px "Inter"`;
+        const valueLabel = formatMoney(value);
+        context.fillText(valueLabel, right - context.measureText(valueLabel).width, barY);
+        const trackY = barY + (compact ? 5 : 8);
+        context.fillStyle = track;
+        context.fillRect(barX, trackY, barWidth, barHeight);
+        context.fillStyle = color;
+        context.fillRect(barX, trackY, barWidth * comparisonBarWidth(value, scaleMax) / 100, barHeight);
+      };
+      if (row.initial == null) drawBar(group.exitLabel, row.exit, y + (compact ? 24 : 30), mint);
+      else {
+        drawBar(group.initialLabel, row.initial, firstY, platinum);
+        drawBar(group.exitLabel, row.exit, secondY, mint);
+      }
+      y += rowHeight;
+    });
+  });
+
+  context.strokeStyle = rule;
+  context.beginPath();
+  context.moveTo(margin, 1280);
+  context.lineTo(right, 1280);
+  context.stroke();
+  context.fillStyle = dim;
+  context.font = '300 14px "Inter"';
+  context.fillText(fitCanvasText(context, state.meta?.asOf || "Illustrative model", 560), margin, 1320);
+  const footerLogoHeight = 21;
+  const footerLogoWidth = footerLogoHeight * (logo.naturalWidth / logo.naturalHeight);
+  const footerUrl = "tiki.vc/waterfall";
+  const footerUrlWidth = context.measureText(footerUrl).width;
+  context.fillText(footerUrl, right - footerLogoWidth - footerUrlWidth - 28, 1320);
+  context.drawImage(logo, right - footerLogoWidth, 1299, footerLogoWidth, footerLogoHeight);
+  return canvas;
+}
+
+let linkedInCanvas = null;
+let linkedInPngUrl = "";
+let linkedInDownloadUrl = "";
+
+async function showLinkedInSnapshot() {
+  const button = document.querySelector("#linkedin-button");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "preparing";
+  try {
+    linkedInCanvas = await buildLinkedInCanvas();
+    linkedInPngUrl = linkedInCanvas.toDataURL("image/png");
+    const blob = await new Promise((resolve, reject) => linkedInCanvas.toBlob((result) => result ? resolve(result) : reject(new Error("Could not create PNG")), "image/png"));
+    if (linkedInDownloadUrl) URL.revokeObjectURL(linkedInDownloadUrl);
+    linkedInDownloadUrl = URL.createObjectURL(blob);
+    linkedinDownloadButton.href = linkedInDownloadUrl;
+    linkedinDownloadButton.download = `${slugify(state.deal.name || "exit-waterfall")}-${activeResultTab}-linkedin.png`;
+    const previewImage = new Image();
+    previewImage.src = linkedInPngUrl;
+    previewImage.alt = linkedInCanvas.getAttribute("aria-label");
+    previewImage.width = 1080;
+    previewImage.height = 1350;
+    linkedinPreview.replaceChildren(previewImage);
+    linkedinPreview.scrollTop = 0;
+    linkedinDialog.showModal();
+    resultsStatus.textContent = `Prepared ${activeResultTab === "investors" ? "selected-round investor" : "founder and employee"} LinkedIn image.`;
+  } catch (error) {
+    window.alert("The LinkedIn image could not be generated. Please try again.");
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
 function renderBridgeChart(bridge, incremental, grossProceeds) {
   const deal = state.deal;
   const adjustments = [
@@ -861,6 +1165,10 @@ document.querySelector("#reset-button").addEventListener("click", () => {
 });
 document.querySelector("#methods-button").addEventListener("click", () => { renderDialogs(); methodsDialog.showModal(); });
 document.querySelector("#sources-button").addEventListener("click", () => { renderDialogs(); sourcesDialog.showModal(); });
+document.querySelector("#linkedin-button").addEventListener("click", showLinkedInSnapshot);
+linkedinDownloadButton.addEventListener("click", () => {
+  resultsStatus.textContent = `Downloaded ${activeResultTab === "investors" ? "investor" : "founder and employee"} LinkedIn image.`;
+});
 
 document.querySelector("#export-button").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
@@ -975,6 +1283,7 @@ function updateClock() { clock.textContent = clockFormatter.format(new Date()); 
 updateClock();
 setInterval(updateClock, 1000);
 addEventListener("pagehide", saveState);
+addEventListener("pagehide", () => { if (linkedInDownloadUrl) URL.revokeObjectURL(linkedInDownloadUrl); });
 
 function syncWorkspaceOrder(event = mobileWorkspaceQuery) {
   if (event.matches) workspace.insertBefore(resultsPanel, inputsPanel);
