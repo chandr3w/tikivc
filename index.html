@@ -150,6 +150,8 @@
       color: #000;
     }
 
+    #accept:disabled { opacity: 0.6; cursor: wait; }
+
     /* Shake hint */
     #shake {
       position: fixed;
@@ -254,7 +256,7 @@
   <div id="splash">
     <h1>Warning: Flashing Images, Loud Noises</h1>
     <p>Also: tropical weather.</p>
-    <button id="accept" onclick="document.getElementById('splash').style.display='none'; document.dispatchEvent(new Event('palm-start'));">I can handle it</button>
+    <button id="accept" disabled>Loading…</button>
   </div>
 
   <div id="shake">Move your mouse.</div>
@@ -273,6 +275,31 @@
     Music: <a href="https://www.youtube.com/watch?v=fJWmbLS2_ec" target="_blank" rel="noopener">youtube</a>
   </div>
 
+  <script id="startup">
+    // PaperScript loads asynchronously. Keep consent on screen until the
+    // scene is initialized, so an early click cannot lose the start event.
+    (function() {
+      var button = document.getElementById('accept');
+      var ready = false;
+      var timeout = setTimeout(function() {
+        button.disabled = false;
+        button.textContent = 'Loading failed. Retry';
+      }, 20000);
+      document.addEventListener('palm-ready', function() {
+        ready = true;
+        clearTimeout(timeout);
+        button.disabled = false;
+        button.textContent = 'I can handle it';
+      });
+      button.addEventListener('click', function() {
+        if (!ready) {
+          window.location.reload();
+          return;
+        }
+        document.dispatchEvent(new Event('palm-start'));
+      });
+    })();
+  </script>
   <script src="paper.js"></script>
   <script src="Tween.js"></script>
   <script src="traer.js"></script>

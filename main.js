@@ -1355,3 +1355,6 @@ function updateStars() {
     }
   }
 }
+
+// Signal only after scene construction and input handlers have completed.
+document.dispatchEvent(new window.Event('palm-ready'));
