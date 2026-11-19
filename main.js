@@ -65,16 +65,6 @@
 var audioEl = null;
 var TIKI_LOOP_START = 52.0;
 
-// Aggressive preload: fetch the MP3 as a Blob immediately on page load and
-// swap the <audio> element's src to a blob: URL. iOS Safari often defers
-// the actual download for `<audio preload="auto">` until first play() call —
-// which on this page is when the hurricane triggers, causing a noticeable
-// stall mid-storm. Pre-fetching guarantees the bytes are in memory by the
-// time the user hits "I can handle it".
-//
-// (Preload runs from a plain <script> tag in index.html — paperscript's
-// compile step drops top-level Promise chains here.)
-
 function initAudio() {
   audioEl = document.getElementById('storm-audio');
   if (!audioEl) return;
@@ -101,7 +91,7 @@ function initAudio() {
   var p;
   try { p = audioEl.play(); } catch(e) { /* play() may throw synchronously */ }
   var finalize = function() {
-    try { audioEl.pause(); } catch(e) {}
+    if (!peaking || document.hidden) audioEl.pause();
     audioEl.muted = false;
     seekToLoopStart();
   };
@@ -145,8 +135,9 @@ function muteAudio() {
 
 // ─── DOM ─────────────────────────────────────────────────────────────────────
 var splash = document.getElementById('splash');
-var acceptButton = document.getElementById('accept');
 var shakeHint = document.getElementById('shake');
+var sceneCanvas = document.getElementById('canvas');
+var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 document.addEventListener('palm-start', function() { start(); }, false);
 
@@ -607,19 +598,27 @@ function handleTouchPoint(touch) {
 // canvas already blocks scroll/zoom there). Calling preventDefault in a
 // touchstart listener on desktop trackpads with touch emulation can cancel
 // the subsequent mousedown/mousemove chain that Paper.js listens for.
-document.addEventListener('touchstart', function(e) {
-  if (!e.touches || !e.touches[0]) return;
-  if (e.target && e.target.closest && e.target.closest('#splash, #credits, #credits-trigger, #atas-logo-link')) return;
+sceneCanvas.addEventListener('touchstart', function(e) {
+  if (!started || e.touches.length !== 1) return;
   handleTouchPoint(e.touches[0]);
 }, { passive: true });
 
-document.addEventListener('touchmove', function(e) {
-  if (!e.touches || !e.touches[0]) return;
-  e.preventDefault();
+sceneCanvas.addEventListener('touchmove', function(e) {
+  if (!started || e.touches.length !== 1) return;
   handleTouchPoint(e.touches[0]);
-}, { passive: false });
+}, { passive: true });
+
+sceneCanvas.addEventListener('keydown', function(e) {
+  if (!started || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+  e.preventDefault();
+  var direction = e.key === 'ArrowLeft' ? -1 : 1;
+  targetMousePos.x = view.size.width / 2 + direction * segmentLength * 3;
+  targetMousePos.y = view.size.height - segmentLength;
+  lastMouseActivityTime = Date.now();
+});
 
 function onMouseMove(event) {
+  if (!started) return;
   var a = Math.atan2(event.point.y - view.size.height, event.point.x - view.size.width / 2);
   targetMousePos.x = view.size.width / 2 + Math.cos(a) * segmentLength * 3;
   targetMousePos.y = view.size.height + Math.sin(a) * segmentLength;
@@ -682,7 +681,7 @@ function start() {
   if (started) return;
   started = true;
   splash.style.display = 'none';
-  try { initAudio(); muteAudio(); } catch(e) { /* audio may fail, continue anyway */ }
+  try { initAudio(); } catch(e) { /* audio may fail, continue anyway */ }
   // Show the hint sooner on mobile where interaction is less obvious
   hintTimeout = setTimeout(function() { shakeHint.style.display = 'block'; }, isTouchDevice ? 5000 : 15000);
   // Reset stress/speed state so anything that built up before click is cleared
@@ -721,7 +720,7 @@ function start() {
 // fixed-interval cadence. RAF felt slow on iOS because ProMotion throttles
 // RAF down to ~30Hz when the tab isn't in active foreground interaction,
 // which dragged physics with it. setInterval doesn't vary.
-setInterval(function() {
+function drawFrame() {
   physics.gravity.x = Math.sin(Date.now() / 5000) * 0.2 + Math.sin(Date.now() / 8000) * 0.1;
   physics.gravity.y = Math.sin(Date.now() / 6000) * 0.15 - 3;
   setPositions();
@@ -739,7 +738,22 @@ setInterval(function() {
   applyScreenShake();
   view.draw();
   prevPeaking = peaking;
-}, 1000 / 60);
+}
+
+var frameTimer = null;
+function syncAnimation() {
+  if (started && !document.hidden) {
+    if (frameTimer === null) frameTimer = setInterval(drawFrame, 1000 / 60);
+  } else if (frameTimer !== null) {
+    clearInterval(frameTimer);
+    frameTimer = null;
+    muteAudio();
+    stress = 0;
+    mouseSpeedSmoothed = 0;
+  }
+}
+document.addEventListener('palm-start', syncAnimation);
+document.addEventListener('visibilitychange', syncAnimation);
 
 // Animate shoreline wave crest + drifting foam flecks
 function updateWaves() {
@@ -838,7 +852,9 @@ function updateAppearance() {
   // No ambient wind sound — audio is totally silent until the hurricane triggers
 
   // Hysteresis state machine — prevents the peaking flicker that causes freeze
-  if (!peaking && stress > hurricaneThreshold) {
+  if (reducedMotion.matches) {
+    peaking = false;
+  } else if (!peaking && stress > hurricaneThreshold) {
     peaking = true;
   } else if (peaking && stress < hurricaneExitThreshold) {
     peaking = false;
@@ -1357,4 +1373,5 @@ function updateStars() {
 }
 
 // Signal only after scene construction and input handlers have completed.
+drawFrame();
 document.dispatchEvent(new window.Event('palm-ready'));

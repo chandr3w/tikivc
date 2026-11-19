@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Tiki Venture Capital</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌴</text></svg>">
   <link rel="apple-touch-icon" href="og-image.png">
@@ -21,31 +21,6 @@
   <meta name="twitter:image" content="https://tiki.vc/og-image.png">
   <meta name="theme-color" content="#4AAFED">
 
-  <!-- Storm ambience audio. HTMLAudioElement plays more reliably on iOS than
-       Web Audio (no AudioContext suspend quirks, no cross-gesture unlock drift).
-       Browser preloads via preload="auto". playsinline keeps it from taking
-       over the screen on iOS. -->
-  <audio id="storm-audio" src="tikinoise.mp3" preload="auto" playsinline webkit-playsinline></audio>
-  <script>
-    // Aggressive audio preload — fetch the MP3 as a Blob and swap the audio
-    // element's src to a blob: URL so the entire file is in memory before
-    // any play() call. iOS Safari often defers <audio preload="auto"> until
-    // first user gesture, which on this page is the storm-trigger moment;
-    // pre-fetching avoids the mid-storm stall.
-    //
-    // Lives here (not in main.js) because main.js is parsed as paperscript
-    // and Paper.js v0.22's compile step drops top-level Promise chains.
-    fetch('tikinoise.mp3', { credentials: 'omit' })
-      .then(function(r) { return r.blob(); })
-      .then(function(blob) {
-        var el = document.getElementById('storm-audio');
-        if (el) {
-          el.src = URL.createObjectURL(blob);
-          el.load();
-        }
-      })
-      .catch(function(err) { console.warn('storm audio preload failed', err); });
-  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -76,8 +51,7 @@
                         intrinsic 300×150 sizing; explicit width/height does. */
       height: 100%;
       display: block;
-      /* Prevent iOS Safari from hijacking touches for scroll/zoom/pull-to-refresh */
-      touch-action: none;
+      touch-action: pinch-zoom;
       -webkit-touch-callout: none;
       -webkit-user-select: none;
       user-select: none;
@@ -114,6 +88,7 @@
       justify-content: center;
       color: #fff;
       text-align: center;
+      padding: 16px;
     }
 
     #splash h1 {
@@ -152,6 +127,17 @@
 
     #accept:disabled { opacity: 0.6; cursor: wait; }
 
+    :focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 5px #222;
+    }
+
+    canvas:focus-visible {
+      outline-offset: -5px;
+      box-shadow: inset 0 0 0 7px #222;
+    }
+
     /* Shake hint */
     #shake {
       position: fixed;
@@ -180,7 +166,10 @@
       bottom: calc(14px + env(safe-area-inset-bottom, 0px));
       left: calc(14px + env(safe-area-inset-left, 0px));
       z-index: 60;
-      display: block;
+      display: grid;
+      place-items: center;
+      min-width: 44px;
+      min-height: 44px;
       line-height: 0;
     }
     #atas-logo {
@@ -200,44 +189,46 @@
       bottom: calc(16px + env(safe-area-inset-bottom, 0px));
       right: calc(18px + env(safe-area-inset-right, 0px));
       z-index: 60;
-      color: #b89968;
+      color: #f8eedb;
       font-size: 0.78rem;
       letter-spacing: 0.15em;
       text-transform: lowercase;
-      text-shadow: 0 1px 2px rgba(255,255,255,0.45);
       cursor: pointer;
-      background: transparent;
+      background: #574329;
       border: none;
-      padding: 4px 6px;
+      border-radius: 8px;
+      padding: 6px 10px;
+      min-width: 44px;
+      min-height: 44px;
       font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
     }
-    #credits-trigger:hover { color: #8b6f47; }
+    #credits-trigger:hover { background: #3f301e; }
 
     /* Credits popup bottom-right */
     #credits {
       position: fixed;
-      bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(68px + env(safe-area-inset-bottom, 0px));
       right: calc(16px + env(safe-area-inset-right, 0px));
       z-index: 61;
-      max-width: 260px;
-      padding: 12px 36px 12px 14px;
-      background: rgba(255, 255, 255, 0.92);
+      max-width: min(300px, calc(100% - 32px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+      max-height: calc(100% - 84px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+      overflow: auto;
+      overflow-wrap: anywhere;
+      padding: 12px 56px 12px 14px;
+      background: #fff;
       color: #222;
-      font-size: 0.78rem;
+      font-size: 0.9rem;
       line-height: 1.45;
       border-radius: 10px;
       box-shadow: 0 2px 14px rgba(0,0,0,0.18);
       font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
-      transition: opacity 0.3s ease, transform 0.3s ease;
     }
-    #credits a { color: #0a66c2; text-decoration: none; }
-    #credits a:hover { text-decoration: underline; }
-    #credits.hidden { opacity: 0; transform: translateY(8px); pointer-events: none; }
+    #credits a { color: #0a66c2; }
     #credits-close {
       position: absolute;
       top: 6px;
       right: 8px;
-      width: 22px; height: 22px;
+      width: 44px; height: 44px;
       background: transparent;
       border: none;
       cursor: pointer;
@@ -247,11 +238,20 @@
       padding: 0;
     }
     #credits-close:hover { color: #000; }
+
+    @media (prefers-reduced-motion: reduce) {
+      body, #accept, #atas-logo { transition: none; }
+      #shake { animation: none; }
+      .bg-storm {
+        animation: none !important;
+        background-color: #1a0030;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <canvas id="canvas" resize data-paper-scope="1"></canvas>
+  <audio id="storm-audio" src="tikinoise.mp3" preload="none" playsinline webkit-playsinline></audio>
 
   <div id="splash">
     <h1>Warning: Flashing Images, Loud Noises</h1>
@@ -259,20 +259,24 @@
     <button id="accept" disabled>Loading…</button>
   </div>
 
-  <div id="shake">Move your mouse.</div>
+  <div id="scene-controls" inert>
+    <canvas id="canvas" resize data-paper-scope="1" tabindex="0" aria-label="Interactive palm tree. Move your pointer, touch the scene, or use the left and right arrow keys."></canvas>
 
-  <a id="atas-logo-link" href="https://atas.vc" target="_blank" rel="noopener">
-    <img id="atas-logo" src="atas-logo.png" alt="Atas VC">
-  </a>
+    <div id="shake" aria-hidden="true">Move your mouse.</div>
 
-  <button id="credits-trigger" aria-label="Show credits">credits</button>
+    <a id="atas-logo-link" href="https://atas.vc" target="_blank" rel="noopener">
+      <img id="atas-logo" src="atas-logo.png" alt="Atas VC">
+    </a>
 
-  <div id="credits" class="hidden">
-    <button id="credits-close" aria-label="Close">×</button>
-    <strong>Credits</strong><br>
-    By Andrew from <a href="https://atas.vc" target="_blank" rel="noopener">atas.vc</a><br>
-    Inspired by <a href="https://staggeringbeauty.com" target="_blank" rel="noopener">staggeringbeauty.com</a><br>
-    Music: <a href="https://www.youtube.com/watch?v=fJWmbLS2_ec" target="_blank" rel="noopener">youtube</a>
+    <button id="credits-trigger" aria-controls="credits" aria-expanded="false">credits</button>
+
+    <div id="credits" role="region" aria-labelledby="credits-heading" hidden>
+      <button id="credits-close" aria-label="Close credits">×</button>
+      <strong id="credits-heading">Credits</strong><br>
+      By Andrew from <a href="https://atas.vc" target="_blank" rel="noopener">atas.vc</a><br>
+      Inspired by <a href="https://staggeringbeauty.com" target="_blank" rel="noopener">staggeringbeauty.com</a><br>
+      Music: <a href="https://www.youtube.com/watch?v=fJWmbLS2_ec" target="_blank" rel="noopener">youtube</a>
+    </div>
   </div>
 
   <script id="startup">
@@ -301,18 +305,43 @@
     })();
   </script>
   <script src="paper.js"></script>
-  <script src="Tween.js"></script>
   <script src="traer.js"></script>
   <script src="jiggler.js"></script>
-  <script src="main.js?v=startup-ready-1" type="text/paperscript" canvas="canvas"></script>
+  <script src="main.js?v=keyboard-motion-1" type="text/paperscript" canvas="canvas"></script>
   <script>
-    // Credits popup toggle
-    document.getElementById('credits-trigger').addEventListener('click', function() {
-      document.getElementById('credits').classList.toggle('hidden');
-    });
-    document.getElementById('credits-close').addEventListener('click', function() {
-      document.getElementById('credits').classList.add('hidden');
-    });
+    (function() {
+      var scene = document.getElementById('scene-controls');
+      var canvas = document.getElementById('canvas');
+      var trigger = document.getElementById('credits-trigger');
+      var credits = document.getElementById('credits');
+      var close = document.getElementById('credits-close');
+
+      document.addEventListener('palm-start', function() {
+        scene.removeAttribute('inert');
+        requestAnimationFrame(function() {
+          canvas.focus({ preventScroll: true });
+        });
+      }, { once: true });
+
+      function setCreditsOpen(open) {
+        credits.hidden = !open;
+        trigger.setAttribute('aria-expanded', String(open));
+        (open ? close : trigger).focus({ preventScroll: true });
+      }
+
+      trigger.addEventListener('click', function() {
+        setCreditsOpen(credits.hidden);
+      });
+      close.addEventListener('click', function() {
+        setCreditsOpen(false);
+      });
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !credits.hidden) {
+          event.preventDefault();
+          setCreditsOpen(false);
+        }
+      });
+    })();
   </script>
 
 </body>

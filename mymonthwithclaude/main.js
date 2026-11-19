@@ -40,14 +40,14 @@ async function onChooseFolder() {
   }
   setStatus("aggregating…");
   // Reset prior render so the user submits + regenerates intentionally.
+  state.stats = null;
   state.pngBlob = null;
+  $("choose").disabled = true;
   $("download").disabled = true;
   $("submit").disabled = true;
   try {
     const windowDays = getWindow();
     const stats = await aggregate(dirHandle, windowDays, (s) => setStatus(s));
-    state.stats = stats;
-    console.log("aggregate result:", stats);
     if (stats.files_scanned === 0) {
       setStatus("No .jsonl files found. Did you pick ~/.claude/projects (or its parent)? You can also pick a single project folder. Check the browser console for details.");
       return;
@@ -56,11 +56,18 @@ async function onChooseFolder() {
       setStatus(`Found ${stats.files_scanned} files but 0 messages in the last ${windowDays} days. Try a longer window, or check the timestamps in your JSONL.`);
       return;
     }
+    state.stats = stats;
+    if (windowDays !== getWindow()) {
+      setStatus("Choose your folder again to calculate stats for the new window.");
+      return;
+    }
     setStatus(`Aggregated ${stats.files_scanned} files · ${stats.totals.messages} messages · ${stats.totals.active_days}/${windowDays} active days. Click "Submit & generate" to create your image.`);
     $("submit").disabled = false;
   } catch (e) {
     console.error(e);
     setStatus("aggregation failed: " + e.message);
+  } finally {
+    $("choose").disabled = false;
   }
 }
 
@@ -70,7 +77,7 @@ async function renderNow() {
     stats: state.stats,
     displayName: getDisplayName(),
     useLogo: getUseLogo(),
-    windowDays: getWindow(),
+    windowDays: state.stats.window_days,
     onStatus: (s) => setStatus(s),
   });
   state.pngBlob = blob;
@@ -106,7 +113,7 @@ async function submitToForm() {
   fd.append(ENTRY.name, name);
   fd.append(ENTRY.email, email);
   fd.append(ENTRY.optin, getOptin() ? "Yes" : "");
-  fd.append(ENTRY.days, String(getWindow()));
+  fd.append(ENTRY.days, String(state.stats.window_days));
   fd.append(ENTRY.messages, String(t.messages));
   fd.append(ENTRY.output_tokens, String(t.output_tokens));
   fd.append(ENTRY.cache_read, String(t.cache_read_tokens));
@@ -115,23 +122,21 @@ async function submitToForm() {
   fd.append(ENTRY.streak, String(t.current_streak));
   fd.append(ENTRY.full_stats, truncated);
 
-  console.log("submitting form payload:", fd.toString());
-  try {
-    await fetch(FORM_ENDPOINT, {
-      method: "POST",
-      mode: "no-cors",
-      headers: {"Content-Type": "application/x-www-form-urlencoded"},
-      body: fd.toString(),
-    });
-  } catch (e) {
-    // no-cors → opaque response. We optimistically continue.
-    console.warn("form post error (likely opaque):", e);
-  }
+  await fetch(FORM_ENDPOINT, {
+    method: "POST",
+    mode: "no-cors",
+    headers: {"Content-Type": "application/x-www-form-urlencoded"},
+    body: fd.toString(),
+  });
 }
 
 async function onSubmitAndGenerate() {
   if (!state.stats) {
     setStatus("Pick your ~/.claude/projects folder first.");
+    return;
+  }
+  if (state.stats.window_days !== getWindow()) {
+    setStatus("Choose your folder again to calculate stats for the new window.");
     return;
   }
   const name = getDisplayName();
@@ -140,8 +145,9 @@ async function onSubmitAndGenerate() {
     setStatus("Please enter a display name before submitting.");
     return;
   }
-  if (!email) {
-    setStatus("Please enter an email before submitting.");
+  if (!email || !$("email").validity.valid) {
+    setStatus("Please enter a valid email before submitting.");
+    $("email").focus();
     return;
   }
   if (!getOptin()) {
@@ -149,17 +155,30 @@ async function onSubmitAndGenerate() {
     return;
   }
   $("submit").disabled = true;
+  $("choose").disabled = true;
+  const windows = document.querySelectorAll('input[name="window"]');
+  windows.forEach(input => { input.disabled = true; });
   try {
     setStatus("submitting…");
-    await submitToForm();
-    setStatus("Submitted. Generating PNG…");
+    let networkFailed = false;
+    try {
+      await submitToForm();
+    } catch (e) {
+      networkFailed = true;
+      console.warn("Form request failed:", e);
+    }
+    setStatus("Generating PNG…");
     await renderNow();
-    setStatus("Done. Click \"Download PNG\" to save.");
+    setStatus(networkFailed
+      ? 'The submission request failed. Your PNG is ready. Click "Download PNG" to save.'
+      : 'Done. Click "Download PNG" to save.');
   } catch (e) {
     console.error(e);
     setStatus("generate failed: " + e.message);
   } finally {
     $("submit").disabled = false;
+    $("choose").disabled = false;
+    windows.forEach(input => { input.disabled = false; });
   }
 }
 
@@ -167,8 +186,19 @@ window.addEventListener("DOMContentLoaded", () => {
   $("choose").addEventListener("click", onChooseFolder);
   $("download").addEventListener("click", downloadPNG);
   $("submit").addEventListener("click", onSubmitAndGenerate);
-  // If style/window changes after a render, regenerate locally (no resubmit).
-  document.querySelectorAll('input[name="style"], input[name="window"], #name').forEach(el => {
+  document.querySelectorAll('input[name="window"]').forEach(el => {
+    el.addEventListener("change", () => {
+      if (state.stats && state.stats.window_days !== getWindow()) {
+        $("submit").disabled = true;
+        setStatus("Choose your folder again to calculate stats for the new window.");
+      } else if (state.stats) {
+        $("submit").disabled = false;
+        setStatus("Click \"Submit & generate\" to create your image.");
+      }
+    });
+  });
+  // If the style or display name changes after a render, regenerate locally.
+  document.querySelectorAll('input[name="style"], #name').forEach(el => {
     el.addEventListener("change", async () => {
       if (state.pngBlob) {
         try { setStatus("regenerating…"); await renderNow(); setStatus("Done."); }
